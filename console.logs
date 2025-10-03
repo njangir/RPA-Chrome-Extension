@@ -1,0 +1,29 @@
+{
+    "id": "60c8ee44-feb7-423b-912f-291231d9367d",
+    "type": "click",
+    "target": {
+      "css": "input[aria-label=\"Search\"]",
+      "signature": {
+        "tag": "input",
+        "id": "__xmlview2--menusSearchField-I",
+        "classes": [
+          "sapMSFI"
+        ],
+        "ariaLabel": "Search",
+        "placeholder": "Search",
+        "nthOfType": 1,
+        "textSnippet": "Search",
+        "type": "search"
+      }
+    },
+    "framePath": [
+      {
+        "frameId": 0,
+        "url": "https://capgemitec2.plateau.com/learning/admin/theming/updateThemingInfo.do?4102444799=0#/learning/systemApp@/adminHome",
+        "parentFrameId": -1
+      }
+    ],
+    "timestamp": 1759466540510,
+    "url": "https://capgemitec2.plateau.com/learning/admin/theming/updateThemingInfo.do?4102444799=0#/learning/systemApp@/adminHome",
+    "frameId": 0
+  },
