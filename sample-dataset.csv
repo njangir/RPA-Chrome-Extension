@@ -1,0 +1,6 @@
+email,name,company,phone,message
+john.doe@example.com,John Doe,Acme Corp,555-0123,Hello, this is a test message
+jane.smith@test.com,Jane Smith,Tech Solutions,555-0456,Looking forward to our meeting
+bob.wilson@demo.org,Bob Wilson,Startup Inc,555-0789,Please send me more information
+alice.brown@sample.net,Alice Brown,Big Corp,555-0321,Thanks for the quick response
+charlie.davis@example.org,Charlie Davis,Small Biz,555-0654,Can we schedule a call?

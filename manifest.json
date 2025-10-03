@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Flow Recorder & Player (MVP)",
-  "version": "0.3.0",
-  "description": "Record clicks/inputs across frames & shadow DOM; frame-aware playback; persist/load flows; loop count or dataset; shortcuts; export copied content to JSON/CSV.",
+  "name": "Flow Recorder & Player (Enhanced)",
+  "version": "0.4.0",
+  "description": "Enhanced RPA recorder with improved cross-site compatibility, better element detection, and robust error handling. Works across SPAs, shadow DOM, and dynamic content.",
   "permissions": [
     "scripting",
     "activeTab",
@@ -17,7 +17,7 @@
     "<all_urls>"
   ],
   "action": {
-    "default_title": "Open Recorder"
+    "default_title": "Open Enhanced Recorder"
   },
   "background": {
     "service_worker": "sw.js",
@@ -25,5 +25,19 @@
   },
   "side_panel": {
     "default_path": "panel.html"
-  }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "enhanced-common.js",
+        "enhanced-recorder.js",
+        "enhanced-player.js",
+        "debug-extension.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

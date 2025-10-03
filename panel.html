@@ -1,12 +1,16 @@
 
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Flow Recorder & Player (MVP)</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 12px; }
+    body { 
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; 
+      margin: 12px; 
+      background: #f8fafc;
+    }
     .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
     textarea { width: 100%; height: 140px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     input[type=text]{ width: 220px; }
@@ -16,7 +20,283 @@
     #status { margin-top:8px; color:#0a6; }
     #loopControls { display:none; gap:8px; }
     .muted { color:#666; font-size:12px; }
-    .section { border-top:1px solid #e5e7eb; padding-top:8px; margin-top:8px; }
+    .section { 
+      border-top:1px solid #e5e7eb; 
+      padding-top:12px; 
+      margin-top:12px; 
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    /* Accordion Styles */
+    .accordion {
+      margin-top: 12px;
+    }
+    
+    .accordion-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      background: white;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+    
+    .accordion-item:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .accordion-header {
+      background: #f8fafc;
+      border-bottom: 1px solid #e5e7eb;
+      cursor: pointer;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background-color 0.2s ease;
+    }
+    
+    .accordion-header:hover {
+      background: #f1f5f9;
+    }
+    
+    .accordion-header.active {
+      background: #e0f2fe;
+      border-bottom-color: #0ea5e9;
+    }
+    
+    .step-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+    
+    .step-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: bold;
+      color: white;
+    }
+    
+    .step-icon.click { background: #3b82f6; }
+    .step-icon.input { background: #10b981; }
+    .step-icon.text_selection { background: #f59e0b; }
+    .step-icon.shortcut { background: #8b5cf6; }
+    .step-icon.clipboard { background: #ef4444; }
+    
+    .step-title {
+      font-weight: 600;
+      color: #1f2937;
+      font-size: 14px;
+    }
+    
+    .step-subtitle {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+    
+    .accordion-toggle {
+      background: none;
+      border: none;
+      font-size: 18px;
+      color: #6b7280;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+    
+    .accordion-toggle:hover {
+      background: #e5e7eb;
+      color: #374151;
+    }
+    
+    .accordion-toggle.active {
+      transform: rotate(180deg);
+    }
+    
+    .accordion-body {
+      padding: 16px;
+      background: white;
+      border-top: 1px solid #e5e7eb;
+      display: none;
+    }
+    
+    .accordion-body.show {
+      display: block;
+    }
+    
+    .step-details {
+      display: grid;
+      gap: 12px;
+    }
+    
+    .detail-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    
+    .detail-label {
+      font-weight: 600;
+      color: #374151;
+      min-width: 80px;
+      font-size: 12px;
+    }
+    
+    .detail-value {
+      color: #6b7280;
+      font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: #f3f4f6;
+      padding: 4px 8px;
+      border-radius: 4px;
+      word-break: break-all;
+    }
+    
+    .step-actions {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn-small {
+      padding: 4px 8px;
+      font-size: 11px;
+      border: 1px solid #d1d5db;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-small:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #6b7280;
+    }
+    
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+    
+    .view-toggle {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    
+    .view-btn {
+      padding: 6px 12px;
+      border: 1px solid #d1d5db;
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s ease;
+    }
+    
+    .view-btn.active {
+      background: #3b82f6;
+      color: white;
+      border-color: #3b82f6;
+    }
+    
+    .view-btn:hover:not(.active) {
+      background: #f9fafb;
+    }
+    
+    .empty-state-subtitle {
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    
+    .json-view-hidden {
+      display: none;
+    }
+    
+    /* CSV Import Styles */
+    .csv-import-section {
+      margin-bottom: 12px;
+      padding: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+    
+    .import-btn, .clear-btn {
+      padding: 6px 12px;
+      border: 1px solid #3b82f6;
+      background: #3b82f6;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s ease;
+    }
+    
+    .import-btn:hover {
+      background: #2563eb;
+      border-color: #2563eb;
+    }
+    
+    .clear-btn {
+      background: #ef4444;
+      border-color: #ef4444;
+    }
+    
+    .clear-btn:hover {
+      background: #dc2626;
+      border-color: #dc2626;
+    }
+    
+    #datasetInfo {
+      font-size: 11px;
+      color: #6b7280;
+    }
+    
+    .csv-preview {
+      margin-top: 8px;
+      padding: 8px;
+      background: #f1f5f9;
+      border-radius: 4px;
+      font-size: 11px;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+    
+    .error-message {
+      color: #ef4444;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    
+    .success-message {
+      color: #10b981;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    
+    .hidden-file-input {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -30,15 +310,28 @@
   </div>
 
   <div class="section">
-    <h3>Dataset (JSON array)</h3>
+    <h3>Dataset (JSON array or CSV)</h3>
+    
+    <!-- CSV Import Section -->
+    <div class="csv-import-section">
+      <div class="row">
+        <input type="file" id="csvFileInput" accept=".csv" class="hidden-file-input" />
+        <button id="importCsvBtn" class="import-btn">📁 Import CSV</button>
+        <button id="clearDatasetBtn" class="clear-btn">🗑️ Clear Dataset</button>
+        <span id="datasetInfo" class="muted">No dataset loaded</span>
+      </div>
+    </div>
+    
+    <!-- JSON Input Section -->
     <textarea id="jsonInput" placeholder='[
   {"email":"seed@example.com","name":"Seed"},
   {"email":"u2@example.com","name":"User Two"}
 ]'></textarea>
+    
     <div class="row">
       <button id="playBtn">Play All</button>
       <label><input id="skipFirstRow" type="checkbox" checked> Skip first row (used during recording)</label>
-      <label><input id="manualLoop" type="checkbox"> Pause between rows (manual “Next”)</label>
+      <label><input id="manualLoop" type="checkbox"> Pause between rows (manual "Next")</label>
       <label>Loop count (no dataset): <input id="loopCount" type="number" min="0" step="1" value="0"></label>
     </div>
     <div id="loopControls" class="row">
@@ -52,7 +345,7 @@
     <div class="row">
       <input id="flowName" type="text" placeholder="Flow name" />
       <button id="saveFlowBtn">Save Flow</button>
-      <select id="flowsSelect"></select>
+      <select id="flowsSelect" title="Select saved flow"></select>
       <button id="loadFlowBtn">Load</button>
       <button id="deleteFlowBtn">Delete</button>
     </div>
@@ -68,8 +361,25 @@
   </div>
 
   <div class="section">
-    <h4>Recorded steps (debug view)</h4>
-    <pre id="stepsJson">[]</pre>
+    <h4>Recorded Steps</h4>
+    <div class="view-toggle">
+      <button id="accordionViewBtn" class="view-btn active">📋 Accordion View</button>
+      <button id="jsonViewBtn" class="view-btn">🔧 JSON View</button>
+    </div>
+    
+    <div id="accordionView">
+      <div id="stepsAccordion" class="accordion">
+        <div class="empty-state">
+          <div class="empty-state-icon">📝</div>
+          <div>No steps recorded yet</div>
+          <div class="empty-state-subtitle">Start recording to see steps here</div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="jsonView" class="json-view-hidden">
+      <pre id="stepsJson">[]</pre>
+    </div>
   </div>
 
   <p class="muted">MV3 • All-frame recorder + reinjection • Frame-aware + shadow DOM playback • Persist flows • Export clips.</p>

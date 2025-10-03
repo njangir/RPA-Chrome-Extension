@@ -1,0 +1,79 @@
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flow Recorder & Player (MVP)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 12px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
+    textarea { width: 100%; height: 140px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    input[type=text]{ width: 220px; }
+    input[type=number]{ width: 90px; }
+    select { min-width: 220px; }
+    pre { background:#f6f8fa; padding:8px; border-radius:6px; max-height:240px; overflow:auto; }
+    #status { margin-top:8px; color:#0a6; }
+    #loopControls { display:none; gap:8px; }
+    .muted { color:#666; font-size:12px; }
+    .section { border-top:1px solid #e5e7eb; padding-top:8px; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <h2>Flow Recorder & Player</h2>
+  <div class="row">
+    <button id="startBtn">Start Recording</button>
+    <button id="stopBtn" disabled>Stop</button>
+    <button id="getBtn">Refresh Steps</button>
+    <button id="clearBtn">Clear Steps</button>
+    <span id="stepCount" class="muted">0 steps</span>
+  </div>
+
+  <div class="section">
+    <h3>Dataset (JSON array)</h3>
+    <textarea id="jsonInput" placeholder='[
+  {"email":"seed@example.com","name":"Seed"},
+  {"email":"u2@example.com","name":"User Two"}
+]'></textarea>
+    <div class="row">
+      <button id="playBtn">Play All</button>
+      <label><input id="skipFirstRow" type="checkbox" checked> Skip first row (used during recording)</label>
+      <label><input id="manualLoop" type="checkbox"> Pause between rows (manual “Next”)</label>
+      <label>Loop count (no dataset): <input id="loopCount" type="number" min="0" step="1" value="0"></label>
+    </div>
+    <div id="loopControls" class="row">
+      <button id="nextBtn" disabled>Next</button>
+      <button id="stopPlayBtn">Stop</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Flows (save / load)</h3>
+    <div class="row">
+      <input id="flowName" type="text" placeholder="Flow name" />
+      <button id="saveFlowBtn">Save Flow</button>
+      <select id="flowsSelect"></select>
+      <button id="loadFlowBtn">Load</button>
+      <button id="deleteFlowBtn">Delete</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Copied content (clips)</h3>
+    <div class="row">
+      <span id="clipCount" class="muted">0 items</span>
+      <button id="exportClipsJsonBtn">Export JSON</button>
+      <button id="exportClipsCsvBtn">Export CSV</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h4>Recorded steps (debug view)</h4>
+    <pre id="stepsJson">[]</pre>
+  </div>
+
+  <p class="muted">MV3 • All-frame recorder + reinjection • Frame-aware + shadow DOM playback • Persist flows • Export clips.</p>
+
+  <script src="panel.js"></script>
+</body>
+</html>

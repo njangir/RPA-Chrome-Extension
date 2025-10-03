@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Selection Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .editable {
+            min-height: 50px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            background-color: #f9f9f9;
+        }
+        .instructions {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .highlight {
+            background-color: #ffeb3b;
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Text Selection Recording Test Page</h1>
+    
+    <div class="instructions">
+        <h3>Instructions:</h3>
+        <ol>
+            <li>Start recording in your extension</li>
+            <li>Select text in the various elements below</li>
+            <li>Check the console for "record text selection" messages</li>
+            <li>Test playback with JSON data containing replacement text</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>Input Fields</h3>
+        <label>Email:</label>
+        <input type="email" value="old@example.com" placeholder="Enter email">
+        
+        <label>Name:</label>
+        <input type="text" value="John Doe" placeholder="Enter name">
+        
+        <label>Message:</label>
+        <textarea placeholder="Enter your message">This is some sample text that you can select and replace.</textarea>
+    </div>
+
+    <div class="test-section">
+        <h3>ContentEditable Elements</h3>
+        <div class="editable" contenteditable="true">
+            This is editable content. You can select parts of this text and replace them.
+            Try selecting "editable content" and replacing it with something else.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>Regular Text Content</h3>
+        <p>
+            This is a paragraph with <span class="highlight">highlighted text</span> that you can select.
+            The extension should be able to record text selections in regular paragraph content as well.
+        </p>
+        
+        <div>
+            <strong>Bold text</strong> and <em>italic text</em> can also be selected and replaced.
+            This demonstrates the flexibility of the text selection feature.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>Sample JSON Data for Testing</h3>
+        <pre>[
+  {
+    "email": "new@example.com",
+    "name": "Jane Smith", 
+    "message": "This is the new message content.",
+    "content": "Updated content for replacement"
+  },
+  {
+    "email": "another@test.com",
+    "name": "Bob Johnson",
+    "message": "Another test message.",
+    "content": "Different content to test with"
+  }
+]</pre>
+    </div>
+
+    <script>
+        // Add some interactivity for testing
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Text selection test page loaded');
+            
+            // Add click handlers to show selection feedback
+            document.addEventListener('mouseup', function() {
+                const selection = window.getSelection();
+                if (selection.toString().trim()) {
+                    console.log('Text selected:', selection.toString());
+                }
+            });
+        });
+    </script>
+</body>
+</html>
