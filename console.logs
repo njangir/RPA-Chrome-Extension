@@ -1,3 +1,5 @@
+<input id="__xmlview2--menusSearchField-I" type="search" aria-label="Search" autocomplete="off" placeholder="Search" value="" aria-describedby="__text1" class="sapMSFI">
+
 {
     "id": "60c8ee44-feb7-423b-912f-291231d9367d",
     "type": "click",
