@@ -5,6 +5,8 @@
   let stepsByTab = new Map();
   let clipsByTab = new Map();
   let seedRowByTab = new Map();
+  let startUrls = new Map(); // Store start URLs per tab
+  let currentUrls = new Map(); // Track current URLs per tab
   let pendingContinueResolve = null;
   let aborted = false;
   const recordingTabs = new Set();
@@ -24,6 +26,33 @@
       slog(`Frame ID: ${additionalInfo.frameId}`);
     }
     return { ok: false, error: error.message || String(error) };
+  }
+
+  // Track URL changes and detect redirects
+  function trackUrlChange(tabId, url) {
+    const previousUrl = currentUrls.get(tabId);
+    currentUrls.set(tabId, url);
+    
+    // If this is the first URL for this tab, set it as start URL
+    if (!startUrls.has(tabId)) {
+      startUrls.set(tabId, url);
+      slog(`Start URL set for tab ${tabId}:`, url);
+    }
+    
+    // Detect redirect
+    if (previousUrl && previousUrl !== url) {
+      slog(`Redirect detected for tab ${tabId}:`, previousUrl, '->', url);
+      return { isRedirect: true, previousUrl, currentUrl: url };
+    }
+    
+    return { isRedirect: false, currentUrl: url };
+  }
+
+  // Preserve steps across redirects
+  function preserveStepsAcrossRedirect(tabId) {
+    const steps = stepsByTab.get(tabId) || [];
+    slog(`Preserving ${steps.length} steps across redirect for tab ${tabId}`);
+    return steps;
   }
 
   // Enhanced frame path building with better error handling
@@ -334,8 +363,373 @@
     }
   }
 
+  // Test Flow Handlers
+  async function handleTestFindElement(msg, send) {
+    try {
+      const tab = await getActiveTab();
+      if (!tab) {
+        return send({ ok: false, error: 'No active tab found' });
+      }
+      
+      const step = msg.step;
+      const stepIndex = msg.stepIndex;
+      
+      // Get user-selected selector preference
+      const userSelector = await getUserSelectedSelector(stepIndex);
+      const selector = userSelector || step.target?.css;
+      
+      if (!selector) {
+        return send({ ok: false, error: 'No selector available for this step' });
+      }
+      
+      // Find element using the selector
+      const result = await findElementInTab(tab.id, selector, step.framePath);
+      
+      if (result.element) {
+        return send({ 
+          ok: true, 
+          element: {
+            tagName: result.element.tagName,
+            id: result.element.id,
+            className: result.element.className,
+            textContent: result.element.textContent?.substring(0, 200)
+          },
+          selector: result.selector
+        });
+      } else {
+        return send({ ok: false, error: result.error || 'Element not found' });
+      }
+      
+    } catch (error) {
+      slog('Error in handleTestFindElement:', error);
+      return send({ ok: false, error: error.message });
+    }
+  }
+  
+  async function handleTestHighlightElement(msg, send) {
+    try {
+      const tab = await getActiveTab();
+      if (!tab) {
+        return send({ ok: false, error: 'No active tab found' });
+      }
+      
+      const stepIndex = msg.stepIndex;
+      const steps = stepsByTab.get(tab.id) || [];
+      const step = steps[stepIndex];
+      
+      if (!step) {
+        return send({ ok: false, error: 'Step not found' });
+      }
+      
+      // Get user-selected selector preference
+      const userSelector = await getUserSelectedSelector(stepIndex);
+      const selector = userSelector || step.target?.css;
+      
+      // Send highlight message to content script
+      const result = await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve({ ok: false, error: 'Highlight timeout' });
+        }, 5000);
+        
+        chrome.tabs.sendMessage(tab.id, 
+          { type: 'TEST_HIGHLIGHT_ELEMENT', selector, stepIndex }, 
+          (reply) => {
+            clearTimeout(timeout);
+            if (chrome.runtime.lastError) {
+              resolve({ ok: false, error: chrome.runtime.lastError.message });
+            } else {
+              resolve(reply || { ok: false, error: 'No response' });
+            }
+          }
+        );
+      });
+      
+      return send(result);
+      
+    } catch (error) {
+      slog('Error in handleTestHighlightElement:', error);
+      return send({ ok: false, error: error.message });
+    }
+  }
+  
+  async function handleTestSelector(msg, send) {
+    try {
+      const tab = await getActiveTab();
+      if (!tab) {
+        return send({ ok: false, error: 'No active tab found' });
+      }
+      
+      const selector = msg.selector;
+      const stepIndex = msg.stepIndex;
+      
+      // Test the selector
+      const result = await findElementInTab(tab.id, selector);
+      
+      if (result.element) {
+        // Save the selector preference
+        await saveSelectorPreference(stepIndex, selector);
+        
+        return send({ 
+          ok: true, 
+          element: {
+            tagName: result.element.tagName,
+            id: result.element.id,
+            className: result.element.className,
+            textContent: result.element.textContent?.substring(0, 200)
+          },
+          selector: result.selector
+        });
+      } else {
+        return send({ ok: false, error: result.error || 'Element not found with this selector' });
+      }
+      
+    } catch (error) {
+      slog('Error in handleTestSelector:', error);
+      return send({ ok: false, error: error.message });
+    }
+  }
+  
+  async function handleTestExecuteStep(msg, send) {
+    try {
+      const tab = await getActiveTab();
+      if (!tab) {
+        return send({ ok: false, error: 'No active tab found' });
+      }
+      
+      const step = msg.step;
+      const stepIndex = msg.stepIndex;
+      const selector = msg.selector;
+      
+      if (!step || !selector) {
+        return send({ ok: false, error: 'Step or selector not provided' });
+      }
+      
+      // Find the element first
+      const findResult = await findElementInTab(tab.id, selector, step.framePath);
+      
+      if (!findResult.element) {
+        return send({ ok: false, error: 'Element not found for execution' });
+      }
+      
+      // Inject scripts if needed
+      await injectScripts(tab.id, findResult.frameId, [
+        'enhanced-common.js',
+        'enhanced-player.js'
+      ]);
+      
+      // Execute the step using the player
+      const result = await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve({ ok: false, error: 'Execution timeout' });
+        }, 10000);
+        
+        chrome.tabs.sendMessage(tab.id, {
+          from: 'sw',
+          type: 'EXECUTE_TEST_STEP',
+          step: step,
+          selector: selector,
+          frameId: findResult.frameId
+        }, (response) => {
+          clearTimeout(timeout);
+          resolve(response || { ok: false, error: 'No response from content script' });
+        });
+      });
+      
+      if (result.ok) {
+        slog(`Test step executed successfully: ${step.type} on ${selector}`);
+        return send({ 
+          ok: true, 
+          result: result.result,
+          stepType: step.type,
+          selector: selector
+        });
+      } else {
+        return send({ ok: false, error: result.error || 'Step execution failed' });
+      }
+      
+    } catch (error) {
+      slog('Error in handleTestExecuteStep:', error);
+      return send({ ok: false, error: error.message });
+    }
+  }
+  
+  // Step management handlers
+  async function handleUpdateStep(msg, send) {
+    try {
+      const tab = await getActiveTab();
+      if (!tab) {
+        return send({ ok: false, error: 'No active tab found' });
+      }
+      
+      const steps = stepsByTab.get(tab.id) || [];
+      const index = msg.index;
+      
+      if (index >= 0 && index < steps.length) {
+        steps[index] = msg.step;
+        stepsByTab.set(tab.id, steps);
+        slog(`Updated step ${index} for tab ${tab.id}`);
+        return send({ ok: true });
+      } else {
+        return send({ ok: false, error: 'Invalid step index' });
+      }
+    } catch (error) {
+      slog('Error in handleUpdateStep:', error);
+      return send({ ok: false, error: error.message });
+    }
+  }
+  
+  async function handleDeleteStep(msg, send) {
+    try {
+      const tab = await getActiveTab();
+      if (!tab) {
+        return send({ ok: false, error: 'No active tab found' });
+      }
+      
+      const steps = stepsByTab.get(tab.id) || [];
+      const index = msg.index;
+      
+      if (index >= 0 && index < steps.length) {
+        steps.splice(index, 1);
+        stepsByTab.set(tab.id, steps);
+        slog(`Deleted step ${index} for tab ${tab.id}`);
+        return send({ ok: true });
+      } else {
+        return send({ ok: false, error: 'Invalid step index' });
+      }
+    } catch (error) {
+      slog('Error in handleDeleteStep:', error);
+      return send({ ok: false, error: error.message });
+    }
+  }
+  
+  async function handleHighlightElement(msg, send) {
+    try {
+      const tab = await getActiveTab();
+      if (!tab) {
+        return send({ ok: false, error: 'No active tab found' });
+      }
+      
+      const selector = msg.selector;
+      const stepIndex = msg.stepIndex;
+      
+      if (!selector) {
+        return send({ ok: false, error: 'No selector provided' });
+      }
+      
+      // Get the step to find the frame path
+      const steps = stepsByTab.get(tab.id) || [];
+      const step = steps[stepIndex];
+      
+      if (!step) {
+        return send({ ok: false, error: 'Step not found' });
+      }
+      
+      // Determine target frame
+      let targetFrameId = 0;
+      if (step.framePath && step.framePath.length > 0) {
+        targetFrameId = await resolveFrameIdFromPath(tab.id, step.framePath);
+      }
+      
+      // Inject test scripts if needed
+      await injectScripts(tab.id, targetFrameId, [
+        'enhanced-common.js',
+        'enhanced-player.js'
+      ]);
+      
+      // Send highlight message to content script
+      const result = await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve({ ok: false, error: 'Highlight timeout' });
+        }, 5000);
+        
+        chrome.tabs.sendMessage(tab.id, {
+          from: 'sw',
+          type: 'HIGHLIGHT_ELEMENT',
+          selector: selector,
+          frameId: targetFrameId
+        }, (response) => {
+          clearTimeout(timeout);
+          resolve(response || { ok: false, error: 'No response from content script' });
+        });
+      });
+      
+      if (result.ok) {
+        slog(`Element highlighted successfully: ${selector}`);
+        return send({ ok: true });
+      } else {
+        return send({ ok: false, error: result.error || 'Element not found' });
+      }
+      
+    } catch (error) {
+      slog('Error in handleHighlightElement:', error);
+      return send({ ok: false, error: error.message });
+    }
+  }
+  
+  async function findElementInTab(tabId, selector, framePath = null) {
+    try {
+      // Determine target frame
+      let targetFrameId = 0;
+      if (framePath && framePath.length > 0) {
+        targetFrameId = await resolveFrameIdFromPath(tabId, framePath);
+      }
+      
+      // Inject test scripts if needed
+      await injectScripts(tabId, targetFrameId, [
+        'enhanced-common.js',
+        'enhanced-player.js'
+      ]);
+      
+      // Send message to find element
+      const result = await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve({ ok: false, error: 'Element search timeout' });
+        }, 10000);
+        
+        chrome.tabs.sendMessage(tabId, 
+          { type: 'TEST_FIND_ELEMENT', selector }, 
+          { frameId: targetFrameId },
+          (reply) => {
+            clearTimeout(timeout);
+            if (chrome.runtime.lastError) {
+              resolve({ ok: false, error: chrome.runtime.lastError.message });
+            } else {
+              resolve(reply || { ok: false, error: 'No response' });
+            }
+          }
+        );
+      });
+      
+      return result;
+      
+    } catch (error) {
+      slog('Error in findElementInTab:', error);
+      return { ok: false, error: error.message };
+    }
+  }
+  
+  async function getUserSelectedSelector(stepIndex) {
+    try {
+      const { selectorPreferences = {} } = await chrome.storage.local.get('selectorPreferences');
+      return selectorPreferences[stepIndex] || null;
+    } catch (error) {
+      slog('Error getting user selected selector:', error);
+      return null;
+    }
+  }
+  
+  async function saveSelectorPreference(stepIndex, selector) {
+    try {
+      const { selectorPreferences = {} } = await chrome.storage.local.get('selectorPreferences');
+      selectorPreferences[stepIndex] = selector;
+      await chrome.storage.local.set({ selectorPreferences });
+    } catch (error) {
+      slog('Error saving selector preference:', error);
+    }
+  }
+
   // Enhanced playback with better error handling
-  async function playAll(rows, { interactive = false } = {}) {
+  async function playAll(rows, { interactive = false, startUrl = null } = {}) {
     try {
       const tab = await getActiveTab();
       if (!tab) {
@@ -345,6 +739,33 @@
       const steps = stepsByTab.get(tab.id) || [];
       if (steps.length === 0) {
         throw new Error('No steps to play');
+      }
+      
+      // Navigate to start URL if provided
+      if (startUrl) {
+        slog(`Navigating to start URL: ${startUrl}`);
+        await chrome.tabs.update(tab.id, { url: startUrl });
+        
+        // Wait for page to load
+        await new Promise((resolve) => {
+          const listener = (tabId, changeInfo) => {
+            if (tabId === tab.id && changeInfo.status === 'complete') {
+              chrome.tabs.onUpdated.removeListener(listener);
+              resolve();
+            }
+          };
+          chrome.tabs.onUpdated.addListener(listener);
+          
+          // Timeout after 10 seconds
+          setTimeout(() => {
+            chrome.tabs.onUpdated.removeListener(listener);
+            resolve();
+          }, 10000);
+        });
+        
+        // Additional wait for dynamic content
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        slog('Navigation to start URL completed');
       }
       
       slog(`Starting playback of ${rows.length} rows with ${steps.length} steps each`);
@@ -387,6 +808,88 @@
       
     } catch (error) {
       slog('Error during playback:', error);
+      throw error;
+    }
+  }
+
+  // Grouped playback for loop groups
+  async function playAllGrouped(rows, { interactive = false, startUrl = null, groupingInfo = null } = {}) {
+    try {
+      const tab = await getActiveTab();
+      if (!tab) {
+        throw new Error('No active tab found');
+      }
+      
+      const steps = stepsByTab.get(tab.id) || [];
+      if (steps.length === 0) {
+        throw new Error('No steps to play');
+      }
+      
+      // Ensure scripts are injected
+      await injectScripts(tab.id, 0, [
+        'enhanced-common.js',
+        'enhanced-player.js',
+        'data-grouping-engine.js'
+      ]);
+      
+      // Navigate to start URL if provided
+      if (startUrl) {
+        slog(`Navigating to start URL: ${startUrl}`);
+        await chrome.tabs.update(tab.id, { url: startUrl });
+        
+        // Wait for page to load
+        await new Promise((resolve) => {
+          const listener = (tabId, changeInfo) => {
+            if (tabId === tab.id && changeInfo.status === 'complete') {
+              chrome.tabs.onUpdated.removeListener(listener);
+              resolve();
+            }
+          };
+          chrome.tabs.onUpdated.addListener(listener);
+          
+          // Timeout after 10 seconds
+          setTimeout(() => {
+            chrome.tabs.onUpdated.removeListener(listener);
+            resolve();
+          }, 10000);
+        });
+        
+        // Additional wait for dynamic content
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        slog('Navigation to start URL completed');
+      }
+      
+      slog(`Starting grouped playback with ${rows.length} rows and ${steps.length} steps`);
+      
+      aborted = false;
+      
+      // Send grouped execution to player
+      const result = await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve({ ok: false, error: 'Grouped playback timeout' });
+        }, 300000); // 5 minute timeout for complex flows
+        
+        chrome.tabs.sendMessage(tab.id, {
+          from: 'sw',
+          type: 'PLAYER_RUN_WITH_GROUPS',
+          steps: steps,
+          rows: rows,
+          groupingInfo: groupingInfo,
+          startUrl: null // Already navigated
+        }, (response) => {
+          clearTimeout(timeout);
+          resolve(response || { ok: false, error: 'No response from player' });
+        });
+      });
+      
+      if (!result.ok) {
+        throw new Error(result.error || 'Grouped playback failed');
+      }
+      
+      slog('Grouped playback completed successfully');
+      
+    } catch (error) {
+      slog('Error during grouped playback:', error);
       throw error;
     }
   }
@@ -435,6 +938,33 @@
       }
     } catch (e) {
       slog('action onClicked failed:', e?.message);
+    }
+  });
+
+  // Web navigation listeners for redirect detection
+  chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+    if (details.frameId === 0) { // Main frame only
+      const tabId = details.tabId;
+      if (recordingTabs.has(tabId)) {
+        slog(`Page navigation starting for tab ${tabId}:`, details.url);
+        trackUrlChange(tabId, details.url);
+      }
+    }
+  });
+
+  chrome.webNavigation.onCompleted.addListener((details) => {
+    if (details.frameId === 0) { // Main frame only
+      const tabId = details.tabId;
+      if (recordingTabs.has(tabId)) {
+        const urlInfo = trackUrlChange(tabId, details.url);
+        slog(`Page navigation completed for tab ${tabId}:`, details.url);
+        
+        if (urlInfo.isRedirect) {
+          // Preserve steps across redirect
+          const preservedSteps = preserveStepsAcrossRedirect(tabId);
+          slog(`Preserved ${preservedSteps.length} steps across redirect`);
+        }
+      }
     }
   });
 
@@ -503,6 +1033,12 @@
             send({ ok: true, steps: stepsByTab.get(tab?.id) || [] });
             break;
             
+          case 'PANEL_GET_START_URL':
+            const urlTab = await getActiveTab();
+            const startUrl = urlTab ? startUrls.get(urlTab.id) : null;
+            send({ ok: true, startUrl });
+            break;
+            
           case 'PANEL_CLEAR_STEPS':
             const clearTab = await getActiveTab();
             if (clearTab) stepsByTab.set(clearTab.id, []);
@@ -510,7 +1046,10 @@
             break;
             
           case 'PANEL_PLAY_ALL':
-            await playAll(msg.rows || [], { interactive: !!msg.interactive });
+            await playAll(msg.rows || [], { 
+              interactive: !!msg.interactive,
+              startUrl: msg.startUrl 
+            });
             send({ ok: true });
             break;
             
@@ -550,6 +1089,62 @@
           case 'PANEL_GET_CLIPS':
             const clipsTab = await getActiveTab();
             send({ ok: true, clips: clipsByTab.get(clipsTab?.id) || [] });
+            break;
+            
+          case 'PANEL_TEST_FIND_ELEMENT':
+            await handleTestFindElement(msg, send);
+            break;
+            
+          case 'PANEL_TEST_HIGHLIGHT_ELEMENT':
+            await handleTestHighlightElement(msg, send);
+            break;
+            
+          case 'PANEL_TEST_SELECTOR':
+            await handleTestSelector(msg, send);
+            break;
+            
+          case 'PANEL_TEST_EXECUTE_STEP':
+            await handleTestExecuteStep(msg, send);
+            break;
+            
+          case 'PANEL_UPDATE_STEP':
+            await handleUpdateStep(msg, send);
+            break;
+            
+          case 'PANEL_DELETE_STEP':
+            await handleDeleteStep(msg, send);
+            break;
+            
+          case 'PANEL_HIGHLIGHT_ELEMENT':
+            await handleHighlightElement(msg, send);
+            break;
+            
+          case 'PANEL_SET_STEPS':
+            // Allow manual setting of steps (for inserting special steps)
+            const setTab = await getActiveTab();
+            if (setTab && msg.steps) {
+              stepsByTab.set(setTab.id, msg.steps);
+              slog(`Set ${msg.steps.length} steps for tab ${setTab.id}`);
+              send({ ok: true });
+            } else {
+              send({ ok: false, error: 'No tab or steps provided' });
+            }
+            break;
+            
+          case 'PANEL_PLAY_ALL_GROUPED':
+            // Play with grouped execution (for loop groups)
+            await playAllGrouped(msg.rows || [], { 
+              interactive: !!msg.interactive,
+              startUrl: msg.startUrl,
+              groupingInfo: msg.groupingInfo
+            });
+            send({ ok: true });
+            break;
+            
+          case 'DATASET_BUTTON_SUCCESS':
+          case 'DATASET_DROP_SUCCESS':
+            // These are responses from content script, just acknowledge
+            send({ ok: true });
             break;
             
           default:

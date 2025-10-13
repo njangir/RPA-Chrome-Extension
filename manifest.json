@@ -35,9 +35,18 @@
         "enhanced-common.js",
         "enhanced-recorder.js",
         "enhanced-player.js",
-        "debug-extension.js"
+        "debug-extension.js",
+        "dataset-helper.js",
+        "data-grouping-engine.js"
       ],
       "matches": ["<all_urls>"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["dataset-helper.js"],
+      "run_at": "document_end"
     }
   ]
 }

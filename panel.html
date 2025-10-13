@@ -297,6 +297,731 @@
     .hidden-file-input {
       display: none;
     }
+    
+    .hidden-section {
+      display: none;
+    }
+    
+    .hidden-button {
+      display: none;
+    }
+    
+    /* Base Button Styles */
+    button {
+      padding: 8px 16px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background: white;
+      color: #374151;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    button:hover:not(:disabled) {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
+    
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    button:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    }
+    
+    /* Selector Selection Styles */
+    .selector-selection {
+      margin-top: 12px;
+      padding: 8px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      border: 1px solid #e9ecef;
+    }
+    
+    .selector-label {
+      display: block;
+      font-weight: 500;
+      color: #495057;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+    
+    .selector-dropdown {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #ced4da;
+      border-radius: 3px;
+      background: white;
+      font-size: 11px;
+      color: #495057;
+      margin-bottom: 4px;
+    }
+    
+    .selector-dropdown:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    }
+    
+    .selector-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .selector-description {
+      color: #6c757d;
+      font-size: 10px;
+      margin: 0;
+    }
+    
+    .selector-status {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: 500;
+    }
+    
+    .selector-status.primary {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .selector-status.fallback {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    .selector-status.custom {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+    
+    /* Test Flow Modal Styles */
+    .test-flow-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    
+    .test-flow-modal.hidden-section {
+      display: none;
+      opacity: 0;
+    }
+    
+    .test-flow-content {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      max-width: 600px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      transform: scale(1);
+      transition: transform 0.3s ease;
+    }
+    
+    .test-flow-modal.hidden-section .test-flow-content {
+      transform: scale(0.9);
+    }
+    
+    .test-flow-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f8fafc;
+      border-radius: 12px 12px 0 0;
+    }
+    
+    .test-flow-header h3 {
+      margin: 0;
+      color: #1f2937;
+      font-size: 18px;
+    }
+    
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: #6b7280;
+      transition: all 0.2s ease;
+    }
+    
+    .close-btn:hover {
+      background: #e5e7eb;
+      color: #374151;
+    }
+    
+    .test-flow-body {
+      padding: 24px;
+    }
+    
+    .test-step-info {
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    
+    .step-counter {
+      font-size: 24px;
+      font-weight: bold;
+      color: #3b82f6;
+      margin-bottom: 8px;
+    }
+    
+    .step-description {
+      font-size: 16px;
+      color: #4b5563;
+      background: #f3f4f6;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border-left: 4px solid #3b82f6;
+    }
+    
+    .test-element-highlight {
+      margin-bottom: 24px;
+      padding: 20px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+    
+    .test-selector-selection {
+      margin: 16px 0;
+      padding: 12px;
+      background: #ffffff;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+    }
+    
+    .highlight-info {
+      margin-bottom: 16px;
+    }
+    
+    .highlight-title {
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 8px;
+    }
+    
+    .highlight-details {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: #6b7280;
+      background: #f1f5f9;
+      padding: 8px 12px;
+      border-radius: 4px;
+      word-break: break-all;
+    }
+    
+    .highlight-actions {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .test-validation {
+      margin-bottom: 24px;
+      padding: 20px;
+      background: #fef3c7;
+      border-radius: 8px;
+      border: 1px solid #f59e0b;
+    }
+    
+    .validation-question {
+      margin-bottom: 16px;
+      font-size: 16px;
+      color: #92400e;
+    }
+    
+    .validation-options {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    
+    .test-progress {
+      margin-top: 24px;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #10b981);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    
+    .progress-text {
+      text-align: center;
+      font-size: 14px;
+      color: #6b7280;
+      font-weight: 500;
+    }
+    
+    /* Button Styles */
+    .btn-primary, .btn-secondary, .btn-success, .btn-warning, .btn-danger {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .btn-primary:disabled, .btn-secondary:disabled, .btn-success:disabled, .btn-warning:disabled, .btn-danger:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+    
+    .btn-secondary {
+      background: #6b7280;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background: #4b5563;
+    }
+    
+    .btn-success {
+      background: #10b981;
+      color: white;
+    }
+    
+    .btn-success:hover {
+      background: #059669;
+    }
+    
+    .btn-warning {
+      background: #f59e0b;
+      color: white;
+    }
+    
+    .btn-warning:hover {
+      background: #d97706;
+    }
+    
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+    
+    /* Dataset Header Buttons Styles */
+    .dataset-buttons-section {
+      margin-top: 12px;
+      padding: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+    
+    .dataset-buttons-section h4 {
+      margin: 0 0 8px 0;
+      color: #374151;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .dataset-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    
+    .dataset-btn {
+      padding: 6px 12px;
+      border: 1px solid #3b82f6;
+      background: #3b82f6;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      -webkit-user-select: none;
+      user-select: none;
+      position: relative;
+    }
+    
+    .dataset-btn:hover {
+      background: #2563eb;
+      border-color: #2563eb;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+    }
+    
+    .dataset-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 2px rgba(59, 130, 246, 0.3);
+    }
+    
+    .dataset-btn.dragging {
+      opacity: 0.7;
+      transform: rotate(5deg);
+      z-index: 1000;
+    }
+    
+    .dataset-btn.drag-over {
+      background: #10b981;
+      border-color: #10b981;
+      transform: scale(1.05);
+    }
+    
+    .dataset-btn-value {
+      font-size: 10px;
+      opacity: 0.8;
+      margin-left: 4px;
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .dataset-btn-key {
+      font-weight: 600;
+    }
+    
+    .dataset-btn-icon {
+      font-size: 10px;
+    }
+    
+    /* Drag and Drop Visual Feedback */
+    .drag-placeholder {
+      border: 2px dashed #3b82f6;
+      background: rgba(59, 130, 246, 0.1);
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: #3b82f6;
+      font-size: 12px;
+      text-align: center;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    /* Input field highlight when dragging over */
+    .input-field-highlight {
+      outline: 2px solid #10b981 !important;
+      outline-offset: 2px !important;
+      background: rgba(16, 185, 129, 0.1) !important;
+    }
+    
+    /* Insert Step Button */
+    .insert-step-btn {
+      background: #8b5cf6;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      margin: 8px 0;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .insert-step-btn:hover {
+      background: #7c3aed;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(139, 92, 246, 0.3);
+    }
+    
+    /* Insert Step Modal */
+    .insert-step-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+    }
+    
+    .insert-step-modal.hidden-section {
+      display: none;
+    }
+    
+    .insert-step-content {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      animation: modalSlideIn 0.3s ease;
+    }
+    
+    @keyframes modalSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .insert-step-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 12px;
+    }
+    
+    .insert-step-header h3 {
+      margin: 0;
+      color: #1f2937;
+      font-size: 20px;
+    }
+    
+    .step-type-selector {
+      margin: 16px 0;
+    }
+    
+    .step-type-selector label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #374151;
+    }
+    
+    .step-type-options {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 12px;
+    }
+    
+    .step-type-option {
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: white;
+    }
+    
+    .step-type-option:hover {
+      border-color: #8b5cf6;
+      background: #f5f3ff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(139, 92, 246, 0.2);
+    }
+    
+    .step-type-option.selected {
+      border-color: #8b5cf6;
+      background: #ede9fe;
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+    }
+    
+    .step-type-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    
+    .step-type-name {
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 4px;
+    }
+    
+    .step-type-desc {
+      font-size: 12px;
+      color: #6b7280;
+      line-height: 1.4;
+    }
+    
+    .step-config-form {
+      margin-top: 20px;
+      padding: 16px;
+      background: #f9fafb;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: #374151;
+      font-size: 13px;
+    }
+    
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.2s ease;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #8b5cf6;
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+    }
+    
+    .form-help {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 4px;
+      font-style: italic;
+    }
+    
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid #e5e7eb;
+    }
+    
+    .btn-cancel {
+      padding: 8px 16px;
+      border: 1px solid #d1d5db;
+      background: white;
+      color: #374151;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-cancel:hover {
+      background: #f3f4f6;
+      border-color: #9ca3af;
+    }
+    
+    .btn-insert {
+      padding: 8px 20px;
+      border: none;
+      background: #8b5cf6;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-insert:hover {
+      background: #7c3aed;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(139, 92, 246, 0.3);
+    }
+    
+    .btn-insert:disabled {
+      background: #d1d5db;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    /* Loop Group Visualization */
+    .accordion-item.loop-group-start {
+      border-left: 4px solid #8b5cf6;
+      margin-left: 12px;
+    }
+    
+    .accordion-item.loop-group-member {
+      margin-left: 24px;
+      border-left: 3px solid #a78bfa;
+    }
+    
+    .accordion-item.loop-group-end {
+      margin-left: 12px;
+      border-left: 4px solid #8b5cf6;
+      border-bottom: 4px solid #8b5cf6;
+    }
+    
+    .step-icon.navigate_url { background: #0ea5e9; }
+    .step-icon.find_by_value { background: #f59e0b; }
+    .step-icon.find_by_index { background: #06b6d4; }
+    .step-icon.loop_group { background: #8b5cf6; }
+    
+    .loop-group-info {
+      display: inline-block;
+      background: #ede9fe;
+      color: #7c3aed;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
   </style>
 </head>
 <body>
@@ -306,7 +1031,17 @@
     <button id="stopBtn" disabled>Stop</button>
     <button id="getBtn">Refresh Steps</button>
     <button id="clearBtn">Clear Steps</button>
+    <button id="testFlowBtn" class="hidden-button">🧪 Test Flow</button>
     <span id="stepCount" class="muted">0 steps</span>
+  </div>
+  
+  <!-- Start URL Display -->
+  <div id="startUrlSection" class="section hidden-section">
+    <h3>Start URL</h3>
+    <div class="row">
+      <span id="startUrlDisplay" class="muted">No start URL recorded</span>
+      <button id="navigateToStartBtn" class="btn-small hidden-button">🌐 Go to Start</button>
+    </div>
   </div>
 
   <div class="section">
@@ -327,6 +1062,14 @@
   {"email":"seed@example.com","name":"Seed"},
   {"email":"u2@example.com","name":"User Two"}
 ]'></textarea>
+    
+    <!-- Dataset Header Buttons Section -->
+    <div id="datasetButtonsSection" class="dataset-buttons-section hidden-section">
+      <h4>Dataset Headers (Click to paste first row values)</h4>
+      <div id="datasetButtons" class="dataset-buttons">
+        <!-- Dynamic buttons will be generated here -->
+      </div>
+    </div>
     
     <div class="row">
       <button id="playBtn">Play All</button>
@@ -367,6 +1110,10 @@
       <button id="jsonViewBtn" class="view-btn">🔧 JSON View</button>
     </div>
     
+    <button id="insertStepBtn" class="insert-step-btn">
+      ➕ Insert Special Step
+    </button>
+    
     <div id="accordionView">
       <div id="stepsAccordion" class="accordion">
         <div class="empty-state">
@@ -379,6 +1126,203 @@
     
     <div id="jsonView" class="json-view-hidden">
       <pre id="stepsJson">[]</pre>
+    </div>
+  </div>
+
+  <!-- Insert Step Modal -->
+  <div id="insertStepModal" class="insert-step-modal hidden-section">
+    <div class="insert-step-content">
+      <div class="insert-step-header">
+        <h3>➕ Insert Special Step</h3>
+        <button id="closeInsertStepBtn" class="close-btn">✕</button>
+      </div>
+      
+      <div class="step-type-selector">
+        <label>Select Step Type:</label>
+        <div class="step-type-options">
+          <div class="step-type-option" data-type="navigate_url">
+            <div class="step-type-icon">🌐</div>
+            <div class="step-type-name">Navigate URL</div>
+            <div class="step-type-desc">Navigate to a URL from dataset</div>
+          </div>
+          
+          <div class="step-type-option" data-type="find_by_value">
+            <div class="step-type-icon">🔍</div>
+            <div class="step-type-name">Find By Value</div>
+            <div class="step-type-desc">Find and click element by text</div>
+          </div>
+          
+          <div class="step-type-option" data-type="find_by_index">
+            <div class="step-type-icon">🔢</div>
+            <div class="step-type-name">Find By Index</div>
+            <div class="step-type-desc">Select Nth item from a list</div>
+          </div>
+          
+          <div class="step-type-option" data-type="loop_group_start">
+            <div class="step-type-icon">🔄</div>
+            <div class="step-type-name">Loop Start</div>
+            <div class="step-type-desc">Begin a repeating group</div>
+          </div>
+          
+          <div class="step-type-option" data-type="loop_group_end">
+            <div class="step-type-icon">🔚</div>
+            <div class="step-type-name">Loop End</div>
+            <div class="step-type-desc">End a repeating group</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Configuration Forms (shown based on selected type) -->
+      <div id="stepConfigForms">
+        <!-- Navigate URL Form -->
+        <div id="navigateUrlForm" class="step-config-form" style="display:none;">
+          <div class="form-group">
+            <label>Dataset Column for URL:</label>
+            <select id="navigateUrlColumn">
+              <option value="">-- Select Column --</option>
+            </select>
+            <div class="form-help">Select which column contains the URLs to navigate to</div>
+          </div>
+          <div class="form-group">
+            <label>Or enter a static URL:</label>
+            <input type="text" id="navigateUrlStatic" placeholder="https://example.com">
+            <div class="form-help">Leave empty to use dataset column</div>
+          </div>
+        </div>
+        
+        <!-- Find By Value Form -->
+        <div id="findByValueForm" class="step-config-form" style="display:none;">
+          <div class="form-group">
+            <label>Dataset Column for Search Text:</label>
+            <select id="findByValueColumn">
+              <option value="">-- Select Column --</option>
+            </select>
+            <div class="form-help">Column containing text to search for</div>
+          </div>
+          <div class="form-group">
+            <label>Action:</label>
+            <select id="findByValueAction">
+              <option value="click">Click</option>
+              <option value="hover">Hover</option>
+              <option value="focus">Focus</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label><input type="checkbox" id="findByValueExact"> Exact match only</label>
+            <label><input type="checkbox" id="findByValueCaseSensitive"> Case sensitive</label>
+          </div>
+        </div>
+        
+        <!-- Find By Index Form -->
+        <div id="findByIndexForm" class="step-config-form" style="display:none;">
+          <div class="form-group">
+            <label>CSS Selector for Collection:</label>
+            <input type="text" id="findByIndexSelector" placeholder="ul li, .item, button">
+            <div class="form-help">Selector that matches multiple elements</div>
+          </div>
+          <div class="form-group">
+            <label>Index (0-based):</label>
+            <input type="number" id="findByIndexNumber" min="0" value="0">
+            <div class="form-help">Or use {ColumnName} for dataset-driven index</div>
+          </div>
+          <div class="form-group">
+            <label>Action:</label>
+            <select id="findByIndexAction">
+              <option value="click">Click</option>
+              <option value="hover">Hover</option>
+            </select>
+          </div>
+        </div>
+        
+        <!-- Loop Group Start Form -->
+        <div id="loopGroupStartForm" class="step-config-form" style="display:none;">
+          <div class="form-group">
+            <label>Group By Column:</label>
+            <select id="loopGroupColumn">
+              <option value="">-- Select Column --</option>
+            </select>
+            <div class="form-help">Rows will be grouped by unique values in this column</div>
+          </div>
+          <div class="form-group">
+            <label>Loop Name (optional):</label>
+            <input type="text" id="loopGroupName" placeholder="e.g., Sections">
+            <div class="form-help">Descriptive name for this loop</div>
+          </div>
+        </div>
+        
+        <!-- Loop Group End Form -->
+        <div id="loopGroupEndForm" class="step-config-form" style="display:none;">
+          <p style="color: #6b7280; font-size: 14px;">
+            This marks the end of a loop group. Make sure there's a matching "Loop Start" before this step.
+          </p>
+        </div>
+      </div>
+      
+      <div class="modal-actions">
+        <button id="cancelInsertStepBtn" class="btn-cancel">Cancel</button>
+        <button id="confirmInsertStepBtn" class="btn-insert" disabled>Insert Step</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Test Flow Modal -->
+  <div id="testFlowModal" class="test-flow-modal hidden-section">
+    <div class="test-flow-content">
+      <div class="test-flow-header">
+        <h3>🧪 Test Flow - Step by Step Validation</h3>
+        <button id="closeTestFlowBtn" class="close-btn">✕</button>
+      </div>
+      
+      <div class="test-flow-body">
+        <div class="test-step-info">
+          <div class="step-counter">
+            <span id="currentStepNumber">1</span> of <span id="totalSteps">0</span>
+          </div>
+          <div class="step-description" id="stepDescription">Preparing test...</div>
+        </div>
+        
+        <div class="test-element-highlight">
+          <div class="highlight-info">
+            <div class="highlight-title">Element Found:</div>
+            <div class="highlight-details" id="highlightDetails">Looking for element...</div>
+          </div>
+          
+          <!-- Selector Selection -->
+          <div class="test-selector-selection">
+            <label for="testSelectorDropdown" class="selector-label">Choose Selector:</label>
+            <select id="testSelectorDropdown" class="selector-dropdown">
+              <option value="">Loading selectors...</option>
+            </select>
+            <div class="selector-info">
+              <small class="selector-description">Select which method to use for finding this element</small>
+            </div>
+          </div>
+          
+          <div class="highlight-actions">
+            <button id="highlightElementBtn" class="btn-primary">🔍 Highlight Element</button>
+            <button id="recheckElementBtn" class="btn-secondary">🔄 Recheck Element</button>
+            <button id="changeSelectorBtn" class="btn-secondary">✏️ Custom Selector</button>
+          </div>
+        </div>
+        
+        <div class="test-validation">
+          <div class="validation-question">
+            <strong>Test this step:</strong>
+          </div>
+          <div class="validation-options">
+            <button id="confirmElementBtn" class="btn-success">✅ Confirm & Continue</button>
+            <button id="skipStepBtn" class="btn-warning">⏭️ Skip This Step</button>
+            <button id="stopTestBtn" class="btn-danger">🛑 Stop Test</button>
+          </div>
+        </div>
+        
+        <div class="test-progress">
+          <div class="progress-bar">
+            <div class="progress-fill" id="testProgressFill"></div>
+          </div>
+          <div class="progress-text" id="testProgressText">0% Complete</div>
+        </div>
+      </div>
     </div>
   </div>
 

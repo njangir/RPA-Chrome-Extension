@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step Actions Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .form-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        
+        .form-section h3 {
+            margin-top: 0;
+            color: #555;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        .instructions {
+            background: #e8f5e8;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #2e7d32;
+        }
+        
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+        
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .test-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .test-btn.primary {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .test-btn.primary:hover {
+            background: #45a049;
+        }
+        
+        .test-btn.secondary {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .test-btn.secondary:hover {
+            background: #1976D2;
+        }
+        
+        .test-btn.warning {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .test-btn.warning:hover {
+            background: #F57C00;
+        }
+        
+        .highlight {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        
+        .step-info {
+            background: #f0f8ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .step-info h4 {
+            margin-top: 0;
+            color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Step Actions Test Page</h1>
+        
+        <div class="instructions">
+            <h3>📋 How to Test Step Actions</h3>
+            <ol>
+                <li><strong>Record Steps:</strong> Use the Chrome extension to record some interactions on this page</li>
+                <li><strong>View Steps:</strong> Open the extension panel and go to "Recorded Steps" section</li>
+                <li><strong>Test Actions:</strong> For each recorded step, try the following actions:
+                    <ul>
+                        <li><strong>📋 Copy Data:</strong> Copies step data to clipboard as JSON</li>
+                        <li><strong>✏️ Edit:</strong> Opens edit dialog to modify step properties</li>
+                        <li><strong>🔍 Highlight:</strong> Temporarily highlights the element on the page</li>
+                        <li><strong>🗑️ Delete:</strong> Removes the step from the recording</li>
+                    </ul>
+                </li>
+                <li><strong>Test Different Elements:</strong> Try recording clicks, inputs, and text selections</li>
+            </ol>
+        </div>
+        
+        <div class="form-section">
+            <h3>📝 Test Form - Click and Input Elements</h3>
+            
+            <div class="form-group">
+                <label for="testInput1">Text Input:</label>
+                <input type="text" id="testInput1" placeholder="Click here and type something...">
+            </div>
+            
+            <div class="form-group">
+                <label for="testEmail">Email Input:</label>
+                <input type="email" id="testEmail" placeholder="Enter email address...">
+            </div>
+            
+            <div class="form-group">
+                <label for="testTextarea">Textarea:</label>
+                <textarea id="testTextarea" rows="3" placeholder="Enter multi-line text here..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="testSelect">Select Dropdown:</label>
+                <select id="testSelect">
+                    <option value="">Choose an option...</option>
+                    <option value="option1">Option 1</option>
+                    <option value="option2">Option 2</option>
+                    <option value="option3">Option 3</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h3>🎯 Test Buttons - Click Actions</h3>
+            
+            <div class="test-buttons">
+                <button class="test-btn primary" onclick="testButtonClick('Primary Button')">
+                    Primary Button
+                </button>
+                <button class="test-btn secondary" onclick="testButtonClick('Secondary Button')">
+                    Secondary Button
+                </button>
+                <button class="test-btn warning" onclick="testButtonClick('Warning Button')">
+                    Warning Button
+                </button>
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h3>📄 Test Text Selection</h3>
+            
+            <div class="step-info">
+                <h4>Sample Text for Selection</h4>
+                <p>This is a paragraph with some text that you can select. Try selecting different parts of this text to test the text selection recording functionality. The extension should capture the selected text and create a step for it.</p>
+                
+                <p>Here's another paragraph with more content. You can select individual words, entire sentences, or even multiple paragraphs. The selection will be recorded as a step that you can later edit, copy, highlight, or delete.</p>
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h3>🔗 Test Links and Special Elements</h3>
+            
+            <div class="test-buttons">
+                <a href="#" class="test-btn primary" onclick="testLinkClick('Test Link 1'); return false;">
+                    Test Link 1
+                </a>
+                <a href="#" class="test-btn secondary" onclick="testLinkClick('Test Link 2'); return false;">
+                    Test Link 2
+                </a>
+                <a href="#" class="test-btn warning" onclick="testLinkClick('Test Link 3'); return false;">
+                    Test Link 3
+                </a>
+            </div>
+        </div>
+        
+        <div class="highlight">
+            <strong>💡 Pro Tips:</strong>
+            <ul>
+                <li>After recording steps, use the <strong>🔍 Highlight</strong> button to see which element each step targets</li>
+                <li>Use the <strong>✏️ Edit</strong> button to modify selectors, text, or other step properties</li>
+                <li>The <strong>📋 Copy Data</strong> button exports step data as JSON for debugging</li>
+                <li>Test with different types of elements to see how the extension handles various selectors</li>
+            </ul>
+        </div>
+        
+        <div class="code-block">
+            <strong>Expected Step Types:</strong><br>
+            • click - Button and link clicks<br>
+            • input - Text input changes<br>
+            • text_selection - Text selections<br>
+            • shortcut - Keyboard shortcuts (Ctrl+C, Ctrl+V, etc.)
+        </div>
+    </div>
+    
+    <script>
+        function testButtonClick(buttonName) {
+            alert(`You clicked: ${buttonName}`);
+            console.log(`Button clicked: ${buttonName}`);
+        }
+        
+        function testLinkClick(linkName) {
+            alert(`You clicked: ${linkName}`);
+            console.log(`Link clicked: ${linkName}`);
+        }
+        
+        // Add some visual feedback
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputs = document.querySelectorAll('input, textarea, select');
+            
+            inputs.forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.style.borderColor = '#4CAF50';
+                    this.style.boxShadow = '0 0 5px rgba(76, 175, 80, 0.3)';
+                });
+                
+                input.addEventListener('blur', function() {
+                    this.style.borderColor = '#ddd';
+                    this.style.boxShadow = 'none';
+                });
+            });
+            
+            // Add click handlers for buttons
+            const buttons = document.querySelectorAll('.test-btn');
+            buttons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    // Add a brief highlight effect
+                    this.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        this.style.transform = 'scale(1)';
+                    }, 100);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

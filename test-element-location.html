@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Element Location Test - SAP UI5 Style</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .sapMSFI {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .instructions {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .log {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Element Location Test - SAP UI5 Style</h1>
+    
+    <div class="instructions">
+        <h3>Test Instructions:</h3>
+        <ol>
+            <li>This page simulates SAP UI5 elements with dynamic IDs</li>
+            <li>Record a click on the search input below</li>
+            <li>Try playback - it should work with the enhanced element location</li>
+            <li>Check the console for detailed debugging information</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>SAP UI5 Style Search Field</h3>
+        <input id="__xmlview1--searchField-I" 
+               type="search" 
+               aria-label="Search" 
+               autocomplete="off" 
+               placeholder="Search" 
+               value="" 
+               class="sapMSFI">
+    </div>
+
+    <div class="test-section">
+        <h3>Another Search Field (Different View)</h3>
+        <input id="__xmlview2--menusSearchField-I" 
+               type="search" 
+               aria-label="Search" 
+               autocomplete="off" 
+               placeholder="Search" 
+               value="" 
+               class="sapMSFI">
+    </div>
+
+    <div class="test-section">
+        <h3>Regular Input Field</h3>
+        <input id="regular-input" 
+               type="text" 
+               aria-label="Regular Input" 
+               placeholder="Regular input field" 
+               value="" 
+               class="regular-input">
+    </div>
+
+    <div class="test-section">
+        <h3>Debug Log</h3>
+        <div id="debug-log" class="log">Console output will appear here...</div>
+    </div>
+
+    <script>
+        // Override console.log to show in the page
+        const debugLog = document.getElementById('debug-log');
+        const originalLog = console.log;
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const logEntry = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            debugLog.innerHTML += logEntry + '\n';
+            debugLog.scrollTop = debugLog.scrollHeight;
+        };
+
+        // Add some interactivity
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Test page loaded');
+            console.log('Available elements:');
+            
+            const inputs = document.querySelectorAll('input');
+            inputs.forEach((input, index) => {
+                console.log(`Input ${index + 1}:`, {
+                    id: input.id,
+                    type: input.type,
+                    ariaLabel: input.getAttribute('aria-label'),
+                    placeholder: input.getAttribute('placeholder'),
+                    classes: input.className
+                });
+            });
+        });
+
+        // Add click handlers for testing
+        document.addEventListener('click', function(e) {
+            if (e.target.tagName === 'INPUT') {
+                console.log('Clicked input:', e.target.id);
+            }
+        });
+    </script>
+</body>
+</html>

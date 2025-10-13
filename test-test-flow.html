@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Flow Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .test-input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .test-select {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .test-textarea {
+            width: 100%;
+            height: 100px;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        .test-link {
+            color: #007bff;
+            text-decoration: none;
+            margin: 5px;
+            display: inline-block;
+        }
+        .test-link:hover {
+            text-decoration: underline;
+        }
+        .test-div {
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Flow Test Page</h1>
+    <p>This page is designed to test the Test Flow functionality of the RPA Chrome Extension.</p>
+    
+    <div class="test-section">
+        <h2>Button Tests</h2>
+        <button id="primary-button" class="test-button">Primary Button</button>
+        <button id="secondary-button" class="test-button">Secondary Button</button>
+        <button id="danger-button" class="test-button" style="background: #dc3545;">Danger Button</button>
+        <button id="success-button" class="test-button" style="background: #28a745;">Success Button</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Input Field Tests</h2>
+        <label for="text-input">Text Input:</label>
+        <input type="text" id="text-input" class="test-input" placeholder="Enter some text">
+        
+        <label for="email-input">Email Input:</label>
+        <input type="email" id="email-input" class="test-input" placeholder="Enter email">
+        
+        <label for="password-input">Password Input:</label>
+        <input type="password" id="password-input" class="test-input" placeholder="Enter password">
+        
+        <label for="number-input">Number Input:</label>
+        <input type="number" id="number-input" class="test-input" placeholder="Enter number">
+    </div>
+    
+    <div class="test-section">
+        <h2>Select and Textarea Tests</h2>
+        <label for="select-dropdown">Select Dropdown:</label>
+        <select id="select-dropdown" class="test-select">
+            <option value="">Choose an option</option>
+            <option value="option1">Option 1</option>
+            <option value="option2">Option 2</option>
+            <option value="option3">Option 3</option>
+        </select>
+        
+        <label for="textarea-field">Textarea:</label>
+        <textarea id="textarea-field" class="test-textarea" placeholder="Enter some text here..."></textarea>
+    </div>
+    
+    <div class="test-section">
+        <h2>Link Tests</h2>
+        <a href="#" id="test-link-1" class="test-link">Test Link 1</a>
+        <a href="#" id="test-link-2" class="test-link">Test Link 2</a>
+        <a href="https://example.com" id="external-link" class="test-link">External Link</a>
+    </div>
+    
+    <div class="test-section">
+        <h2>Div and Content Tests</h2>
+        <div id="clickable-div" class="test-div" style="cursor: pointer;">
+            Clickable Div - Click me!
+        </div>
+        <div id="content-div" class="test-div">
+            This is a content div with some text that can be selected and replaced.
+        </div>
+        <div id="nested-div" class="test-div">
+            <span id="nested-span">Nested span element</span>
+            <button id="nested-button" class="test-button">Nested Button</button>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Form Test</h2>
+        <form id="test-form">
+            <label for="form-input">Form Input:</label>
+            <input type="text" id="form-input" class="test-input" name="formInput">
+            
+            <label for="form-select">Form Select:</label>
+            <select id="form-select" class="test-select" name="formSelect">
+                <option value="">Choose</option>
+                <option value="value1">Value 1</option>
+                <option value="value2">Value 2</option>
+            </select>
+            
+            <button type="submit" id="submit-button" class="test-button">Submit Form</button>
+        </form>
+    </div>
+    
+    <div class="test-section">
+        <h2>Dynamic Content Test</h2>
+        <button id="add-content-btn" class="test-button">Add Dynamic Content</button>
+        <div id="dynamic-content"></div>
+    </div>
+    
+    <script>
+        // Add some interactivity for testing
+        document.getElementById('add-content-btn').addEventListener('click', function() {
+            const dynamicDiv = document.getElementById('dynamic-content');
+            const newDiv = document.createElement('div');
+            newDiv.id = 'dynamic-item-' + Date.now();
+            newDiv.className = 'test-div';
+            newDiv.textContent = 'Dynamic content added at ' + new Date().toLocaleTimeString();
+            dynamicDiv.appendChild(newDiv);
+        });
+        
+        document.getElementById('clickable-div').addEventListener('click', function() {
+            alert('Div was clicked!');
+        });
+        
+        document.getElementById('test-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('Form submitted!');
+        });
+        
+        // Add some data attributes for testing selectors
+        document.getElementById('primary-button').setAttribute('data-testid', 'primary-btn');
+        document.getElementById('text-input').setAttribute('data-testid', 'text-input');
+        document.getElementById('select-dropdown').setAttribute('data-testid', 'select-dropdown');
+    </script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selector Dropdown Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .instructions {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .demo-accordion {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .accordion-header {
+            background: #f8f9fa;
+            padding: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .accordion-body {
+            padding: 15px;
+            display: none;
+        }
+        .accordion-body.show {
+            display: block;
+        }
+        .step-details {
+            margin-bottom: 15px;
+        }
+        .detail-row {
+            display: flex;
+            margin-bottom: 8px;
+        }
+        .detail-label {
+            font-weight: bold;
+            width: 100px;
+            color: #495057;
+        }
+        .detail-value {
+            color: #6c757d;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .selector-selection {
+            margin-top: 12px;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        .selector-label {
+            display: block;
+            font-weight: 500;
+            color: #495057;
+            margin-bottom: 4px;
+            font-size: 12px;
+        }
+        .selector-dropdown {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 3px;
+            background: white;
+            font-size: 11px;
+            color: #495057;
+            margin-bottom: 4px;
+        }
+        .selector-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .selector-description {
+            color: #6c757d;
+            font-size: 10px;
+            margin: 0;
+        }
+        .selector-status {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+        .selector-status.primary {
+            background: #d4edda;
+            color: #155724;
+        }
+        .selector-status.fallback {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .selector-status.custom {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <h1>Selector Dropdown Test</h1>
+    
+    <div class="instructions">
+        <h3>Test Instructions:</h3>
+        <ol>
+            <li>This demonstrates the new selector dropdown functionality</li>
+            <li>Each step shows multiple selector options</li>
+            <li>Users can choose which selector to use for playback</li>
+            <li>Preferences are saved and restored</li>
+        </ol>
+    </div>
+
+    <div class="demo-accordion">
+        <div class="accordion-header" onclick="toggleDemo(0)">
+            <div>
+                <strong>Step 1: Click Search Field</strong>
+                <div style="font-size: 11px; color: #666;">input[aria-label="Search"]</div>
+            </div>
+            <span id="toggle-0">▼</span>
+        </div>
+        <div class="accordion-body" id="body-0">
+            <div class="step-details">
+                <div class="detail-row">
+                    <div class="detail-label">Type:</div>
+                    <div class="detail-value">click</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Selector:</div>
+                    <div class="detail-value">input[aria-label="Search"]</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">ID:</div>
+                    <div class="detail-value">__xmlview2--menusSearchField-I</div>
+                </div>
+            </div>
+            <div class="selector-selection">
+                <label for="selector-0" class="selector-label">Choose Selector:</label>
+                <select id="selector-0" class="selector-dropdown" data-step-index="0">
+                    <option value="input[aria-label=\"Search\"]" data-type="primary" data-description="Original recorded selector">Primary: input[aria-label="Search"]</option>
+                    <option value="#__xmlview2--menusSearchField-I" data-type="id" data-description="Element ID selector">ID: #__xmlview2--menusSearchField-I</option>
+                    <option value="[id$=\"menusSearchField-I\"]" data-type="sap-control" data-description="SAP UI5 control ID (ends with)">Control ID: [id$="menusSearchField-I"]</option>
+                    <option value="[id*=\"menusSearchField-I\"]" data-type="sap-control" data-description="SAP UI5 control ID (contains)">Control ID: [id*="menusSearchField-I"]</option>
+                    <option value="input[aria-label=\"Search\"][type=\"search\"]" data-type="combination" data-description="Aria-label and type combination">Combo: aria-label + type</option>
+                    <option value="custom" data-type="custom" data-description="Enter a custom CSS selector">Custom Selector...</option>
+                </select>
+                <div class="selector-info">
+                    <small class="selector-description">Original recorded selector</small>
+                    <span class="selector-status primary">PRIMARY</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-accordion">
+        <div class="accordion-header" onclick="toggleDemo(1)">
+            <div>
+                <strong>Step 2: Type in Input</strong>
+                <div style="font-size: 11px; color: #666;">input[name="username"]</div>
+            </div>
+            <span id="toggle-1">▼</span>
+        </div>
+        <div class="accordion-body" id="body-1">
+            <div class="step-details">
+                <div class="detail-row">
+                    <div class="detail-label">Type:</div>
+                    <div class="detail-value">type</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Selector:</div>
+                    <div class="detail-value">input[name="username"]</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Value:</div>
+                    <div class="detail-value">john.doe@example.com</div>
+                </div>
+            </div>
+            <div class="selector-selection">
+                <label for="selector-1" class="selector-label">Choose Selector:</label>
+                <select id="selector-1" class="selector-dropdown" data-step-index="1">
+                    <option value="input[name=\"username\"]" data-type="primary" data-description="Original recorded selector">Primary: input[name="username"]</option>
+                    <option value="#username" data-type="id" data-description="Element ID selector">ID: #username</option>
+                    <option value="input[type=\"text\"]" data-type="type" data-description="Input type selector">Type: input[type="text"]</option>
+                    <option value="input[placeholder=\"Username\"]" data-type="placeholder" data-description="Placeholder selector">Placeholder: input[placeholder="Username"]</option>
+                    <option value="custom" data-type="custom" data-description="Enter a custom CSS selector">Custom Selector...</option>
+                </select>
+                <div class="selector-info">
+                    <small class="selector-description">Original recorded selector</small>
+                    <span class="selector-status primary">PRIMARY</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleDemo(index) {
+            const body = document.getElementById(`body-${index}`);
+            const toggle = document.getElementById(`toggle-${index}`);
+            
+            if (body.classList.contains('show')) {
+                body.classList.remove('show');
+                toggle.textContent = '▼';
+            } else {
+                body.classList.add('show');
+                toggle.textContent = '▲';
+            }
+        }
+
+        // Simulate selector change handling
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('selector-dropdown')) {
+                const stepIndex = e.target.getAttribute('data-step-index');
+                const selectedOption = e.target.options[e.target.selectedIndex];
+                
+                // Update description
+                const descriptionEl = e.target.parentNode.querySelector('.selector-description');
+                const statusEl = e.target.parentNode.querySelector('.selector-status');
+                
+                if (descriptionEl) {
+                    descriptionEl.textContent = selectedOption.dataset.description || 'Select a method for finding this element';
+                }
+                
+                if (statusEl) {
+                    statusEl.className = `selector-status ${selectedOption.dataset.type}`;
+                    statusEl.textContent = selectedOption.dataset.type.toUpperCase();
+                }
+                
+                console.log(`Step ${stepIndex} selector changed to:`, e.target.value);
+            }
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Selector dropdown test page loaded');
+        });
+    </script>
+</body>
+</html>

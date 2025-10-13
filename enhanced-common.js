@@ -523,6 +523,148 @@
     return false;
   }
 
+  // Advanced element finding utilities
+  
+  /**
+   * Find element containing specific text value
+   * @param {String} value - Text to search for
+   * @param {Object} options - Search options
+   * @returns {Element|null} Found element or null
+   */
+  function findElementByValue(value, options = {}) {
+    if (!value) return null;
+    
+    const {
+      elementTypes = ['button', 'a', 'span', 'div', 'li', 'td', 'label', 'p'],
+      exactMatch = false,
+      caseSensitive = false,
+      maxDepth = 10
+    } = options;
+    
+    const searchValue = caseSensitive ? value : value.toLowerCase();
+    const selector = elementTypes.join(',');
+    const allElements = document.querySelectorAll(selector);
+    
+    // Strategy 1: Exact match
+    if (exactMatch) {
+      for (const el of allElements) {
+        const text = (el.textContent || '').trim();
+        const compareText = caseSensitive ? text : text.toLowerCase();
+        if (compareText === searchValue) {
+          return el;
+        }
+      }
+      return null;
+    }
+    
+    // Strategy 2: Exact text match (not exact mode, but full text equals)
+    for (const el of allElements) {
+      const text = (el.textContent || '').trim();
+      const compareText = caseSensitive ? text : text.toLowerCase();
+      if (compareText === searchValue) {
+        return el;
+      }
+    }
+    
+    // Strategy 3: Contains match (innerText for better visible text matching)
+    for (const el of allElements) {
+      const text = (el.innerText || el.textContent || '').trim();
+      const compareText = caseSensitive ? text : text.toLowerCase();
+      if (compareText.includes(searchValue)) {
+        return el;
+      }
+    }
+    
+    // Strategy 4: Partial match (any word matches)
+    const words = searchValue.split(/\s+/);
+    for (const el of allElements) {
+      const text = (el.innerText || el.textContent || '').trim();
+      const compareText = caseSensitive ? text : text.toLowerCase();
+      if (words.every(word => compareText.includes(word))) {
+        return el;
+      }
+    }
+    
+    // Strategy 5: Check attributes (aria-label, title, alt, placeholder)
+    for (const el of allElements) {
+      const attrs = [
+        el.getAttribute('aria-label'),
+        el.getAttribute('title'),
+        el.getAttribute('alt'),
+        el.getAttribute('placeholder'),
+        el.getAttribute('value')
+      ];
+      
+      for (const attr of attrs) {
+        if (attr) {
+          const compareAttr = caseSensitive ? attr : attr.toLowerCase();
+          if (compareAttr.includes(searchValue)) {
+            return el;
+          }
+        }
+      }
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Find element by index in a collection
+   * @param {String} selector - CSS selector for collection
+   * @param {Number} index - 0-based index
+   * @returns {Element|null} Found element or null
+   */
+  function findElementByIndex(selector, index) {
+    if (!selector || index < 0) return null;
+    
+    try {
+      const elements = document.querySelectorAll(selector);
+      
+      if (index >= elements.length) {
+        log(`Index ${index} out of bounds for selector "${selector}" (found ${elements.length} elements)`);
+        return null;
+      }
+      
+      return elements[index];
+    } catch (error) {
+      log('Error in findElementByIndex:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Get value from row with support for column reference syntax
+   * Enhanced to support both {columnName} and direct column name
+   * @param {Object} step - Step object
+   * @param {Object} row - Data row
+   * @returns {String} Value from row
+   */
+  function getValueFromRowEnhanced(step, row) {
+    // Original behavior for backward compatibility
+    if (step.placeholderKey && row) {
+      return String(row[step.placeholderKey] ?? '');
+    }
+    if (step.placeholderIndex && Array.isArray(row)) {
+      return String(row[step.placeholderIndex - 1] ?? '');
+    }
+    
+    // New behavior: support "column" property
+    if (step.column && row) {
+      return String(row[step.column] ?? '');
+    }
+    
+    // New behavior: support "value" property with {columnName} syntax
+    if (step.value && typeof step.value === 'string' && row) {
+      // Replace {columnName} with actual value from row
+      return step.value.replace(/\{([^}]+)\}/g, (match, columnName) => {
+        return String(row[columnName] ?? match);
+      });
+    }
+    
+    // Fallback to original text
+    return step.originalTextSample || step.text || step.value || '';
+  }
+
   // Export enhanced utilities
   window.__mvpEnhancedCommon = {
     log,
@@ -543,7 +685,11 @@
     getCurrentSelection,
     getSelectionContext,
     replaceSelectedText,
-    selectTextInElement
+    selectTextInElement,
+    // Advanced element finding
+    findElementByValue,
+    findElementByIndex,
+    getValueFromRowEnhanced
   };
 
   log('Enhanced common.js loaded');
