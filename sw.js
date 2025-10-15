@@ -61,7 +61,7 @@
     try {
       const frames = await chrome.webNavigation.getAllFrames({ tabId });
       if (!frames || frames.length === 0) {
-        return [{ url: undefined }];
+        return [{ frameId: leafFrameId, url: undefined }];
       }
       
       const byId = new Map(frames.map(f => [f.frameId, f]));
@@ -79,15 +79,14 @@
         current = byId.get(current.parentFrameId);
       }
       
-      // Return only URLs for portability (remove frame IDs from exported data)
-      return path.map(frame => ({ url: frame.url }));
+      return path;
     } catch (error) {
       slog('buildFramePath error:', error);
-      return [{ url: undefined }];
+      return [{ frameId: leafFrameId, url: undefined }];
     }
   }
 
-  // Enhanced frame ID resolution with URL-based matching for portability
+  // Enhanced frame ID resolution with better fallback strategies
   async function resolveFrameIdFromPath(tabId, framePath) {
     try {
       const frames = await chrome.webNavigation.getAllFrames({ tabId });
@@ -95,7 +94,7 @@
         return 0; // Main frame fallback
       }
       
-      // Strategy 1: URL-based matching from root to leaf
+      // Strategy 1: Exact URL matching from root to leaf
       let candidates = frames.filter(f => f.parentFrameId === -1);
       
       for (let i = 0; i < framePath.length; i++) {
@@ -140,11 +139,16 @@
         return candidates[0].frameId;
       }
       
-      // Fallback to main frame if no URL-based match found
+      // Fallback to last recorded frameId if it exists
+      const leafId = framePath?.[framePath.length - 1]?.frameId ?? 0;
+      if (frames.some(f => f.frameId === leafId)) {
+        return leafId;
+      }
+      
       return 0; // Main frame fallback
     } catch (error) {
       slog('resolveFrameIdFromPath error:', error);
-      return 0; // Main frame fallback
+      return framePath?.[framePath.length - 1]?.frameId ?? 0;
     }
   }
 
@@ -185,7 +189,7 @@
                   log: (...args) => console.log('[MVP-Enhanced]', ...args),
                   buildLocator: () => ({ css: '', signature: {} }),
                   isTextInput: () => false,
-                  getFramePath: () => ({ frameUrls: [] }),
+                  getFramePath: () => ({ frameIds: [] }),
                   inferPlaceholder: () => ({}),
                   getValueFromRow: (step, row) => step?.originalTextSample || ''
                 };
@@ -1061,11 +1065,12 @@
           const framePath = await buildFramePath(tabId, sender.frameId ?? 0);
           const step = { 
             ...msg.payload, 
+            frameId: sender.frameId ?? 0, 
             framePath 
           };
           
           stepsByTab.get(tabId).push(step);
-          slog('RECORDER_STEP', tabId, step.type, step.target?.css, 'framePath=', step.framePath);
+          slog('RECORDER_STEP', tabId, step.type, step.target?.css, 'frameId=', step.frameId);
           return send?.({ ok: true });
         }
         

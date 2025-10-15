@@ -101,7 +101,7 @@
         id: crypto.randomUUID(),
         type: 'extract_title',
         target: C.buildLocator ? C.buildLocator(document.body) : { css: 'body', signature: {} },
-        framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+        framePath: C.getFramePath ? C.getFramePath() : { frameIds: [] },
         extractedData: {
           title: title,
           timestamp: Date.now()
@@ -137,7 +137,7 @@
         id: crypto.randomUUID(),
         type: 'extract_url',
         target: C.buildLocator ? C.buildLocator(document.body) : { css: 'body', signature: {} },
-        framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+        framePath: C.getFramePath ? C.getFramePath() : { frameIds: [] },
         extractedData: {
           url: url,
           timestamp: Date.now()
@@ -173,7 +173,7 @@
         id: crypto.randomUUID(),
         type: 'extract_metadata',
         target: C.buildLocator ? C.buildLocator(document.body) : { css: 'body', signature: {} },
-        framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+        framePath: C.getFramePath ? C.getFramePath() : { frameIds: [] },
         extractedData: metadata,
         timestamp: Date.now(),
         url: location.href
@@ -218,7 +218,7 @@
         id: crypto.randomUUID(),
         type: 'click',
         target: C.buildLocator ? C.buildLocator(el) : { css: '', signature: {} },
-        framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+        framePath: C.getFramePath ? C.getFramePath() : { frameIds: [] },
         timestamp: Date.now(),
         url: location.href
       };
@@ -257,7 +257,7 @@
         id: crypto.randomUUID(),
         type: 'input',
         target: C.buildLocator ? C.buildLocator(el) : { css: '', signature: {} },
-        framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+        framePath: C.getFramePath ? C.getFramePath() : { frameIds: [] },
         originalTextSample: value,
         ...placeholder,
         timestamp: Date.now(),
@@ -281,7 +281,7 @@
         id: crypto.randomUUID(),
         type: 'file_upload',
         target: C.buildLocator ? C.buildLocator(el) : { css: '', signature: {} },
-        framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+        framePath: C.getFramePath ? C.getFramePath() : { frameIds: [] },
         fileNames: fileNames,
         fileCount: files.length,
         accept: el.getAttribute('accept') || '',
@@ -368,7 +368,7 @@
           key: key,
           code: code,
           target: C.buildLocator ? C.buildLocator(el instanceof Element ? el : document.body) : { css: '', signature: {} },
-          framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+          framePath: C.getFramePath ? C.getFramePath() : { frameIds: [] },
           timestamp: Date.now(),
           url: location.href
         };
@@ -401,7 +401,7 @@
           type: 'shortcut',
           action,
           target: C.buildLocator ? C.buildLocator(el instanceof Element ? el : document.body) : { css: '', signature: {} },
-          framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+          framePath: C.getFramePath ? C.getFramePath() : { frameIds: [] },
           timestamp: Date.now(),
           url: location.href
         };
@@ -442,7 +442,7 @@
           id: crypto.randomUUID(),
           type: 'text_selection',
           target: context.locator,
-          framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+          framePath: C.getFramePath ? C.getFramePath() : { frameIds: [] },
           selectedText: selection.text,
           elementText: context.elementText,
           selectionStart: selection.startOffset,

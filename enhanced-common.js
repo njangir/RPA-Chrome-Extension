@@ -279,40 +279,36 @@
     return false;
   }
 
-  // Enhanced frame path detection - URL-based for portability
+  // Enhanced frame path detection
   function getFramePath() {
     try {
-      // Return URL-based frame path for portability
-      const frameUrls = [];
+      // Try to get frame information from various sources
+      const frameIds = [];
       
       // Method 1: Check if we're in a frame
       if (window !== window.top) {
-        // We're in an iframe, collect URL hierarchy
+        // We're in an iframe, try to determine frame hierarchy
         try {
-          // Add current frame URL
-          frameUrls.push(location.href);
-          
-          // Try to get parent frame URL
-          try {
-            if (window.parent && window.parent.location) {
-              frameUrls.push(window.parent.location.href);
+          const frames = window.parent.frames;
+          for (let i = 0; i < frames.length; i++) {
+            try {
+              if (frames[i] === window) {
+                frameIds.push(i);
+                break;
+              }
+            } catch (e) {
+              // Cross-origin frame, can't access
             }
-          } catch (e) {
-            // Cross-origin restriction - can't access parent URL
-            frameUrls.push('cross-origin-parent');
           }
         } catch (e) {
           // Cross-origin restriction
         }
-      } else {
-        // We're in the main frame
-        frameUrls.push(location.href);
       }
       
-      return { frameUrls };
+      return { frameIds };
     } catch (error) {
       log('Error getting frame path:', error);
-      return { frameUrls: [location.href] };
+      return { frameIds: [] };
     }
   }
 
