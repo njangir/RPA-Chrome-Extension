@@ -267,7 +267,8 @@
           break;
           
         default:
-          sendResponse({ success: false, error: 'Unknown message type' });
+          // Don't handle unknown message types - let other scripts handle them
+          return false; // Let other listeners handle it
       }
     } catch (error) {
       console.error('[Dataset Helper] Error handling message:', error);

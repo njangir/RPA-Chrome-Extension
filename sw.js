@@ -372,8 +372,16 @@
             if (chrome.runtime.lastError) {
               slog('Chrome runtime error:', chrome.runtime.lastError.message);
               resolve({ ok: false, error: chrome.runtime.lastError.message });
+            } else if (!reply) {
+              slog('No response from content script');
+              resolve({ ok: false, error: 'No response from player' });
+            } else if (reply.success !== undefined) {
+              // Handle dataset-helper response format
+              slog('Received dataset-helper format response, converting to player format');
+              resolve({ ok: reply.success, error: reply.error });
             } else {
-              resolve(reply || { ok: false, error: 'No response from player' });
+              // Handle enhanced-player response format
+              resolve(reply);
             }
           }
         );

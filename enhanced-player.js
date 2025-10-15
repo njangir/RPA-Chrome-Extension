@@ -1549,6 +1549,7 @@
     log('Full message:', JSON.stringify(msg, null, 2));
     log('========================================');
     
+    // Only handle player-specific messages
     if (msg?.type === 'PLAYER_RUN') {
       log('Processing PLAYER_RUN message');
       log('Steps to run:', msg.steps?.length || 0);
@@ -1618,6 +1619,11 @@
         });
       return true;
     }
+    
+    // Don't handle other message types - let other scripts handle them
+    // This prevents interference with dataset-helper.js and other scripts
+    log('Message type not handled by enhanced player:', msg?.type);
+    return false; // Let other listeners handle it
   });
 
   // Make highlight function available globally for testing
