@@ -1556,16 +1556,19 @@
       log('Row data:', JSON.stringify(msg.row, null, 2));
       log('Start URL:', msg.startUrl);
       
-      runSteps(msg.steps || [], msg.row || {}, msg.startUrl || null)
-        .then(() => {
+      // Process steps asynchronously
+      (async () => {
+        try {
+          await runSteps(msg.steps || [], msg.row || {}, msg.startUrl || null);
           log('Steps completed successfully');
           send({ ok: true });
-        })
-        .catch(err => {
+        } catch (err) {
           log('Error running steps:', err);
           log('Error stack:', err?.stack);
           send({ ok: false, error: String(err?.stack || err) });
-        });
+        }
+      })();
+      
       return true; // Keep message channel open for async response
     }
     
@@ -1631,4 +1634,17 @@
   window.testRemoveHighlight = removeElementHighlight;
   
   log('Enhanced player ready');
+  
+  // Notify service worker that player is ready
+  try {
+    chrome.runtime.sendMessage({ type: 'PLAYER_READY' }, (response) => {
+      if (chrome.runtime.lastError) {
+        log('Could not notify service worker of ready state:', chrome.runtime.lastError.message);
+      } else {
+        log('Notified service worker that player is ready');
+      }
+    });
+  } catch (e) {
+    log('Error notifying service worker:', e);
+  }
 })();

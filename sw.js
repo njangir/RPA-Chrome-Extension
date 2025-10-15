@@ -355,6 +355,9 @@
       }
       slog('Scripts injected successfully');
       
+      // Wait a moment for scripts to initialize
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // Execute step
       slog('Sending PLAYER_RUN message to content script...');
       return await new Promise((resolve) => {
@@ -363,28 +366,39 @@
           resolve({ ok: false, error: 'Step execution timeout' });
         }, 30000); // 30 second timeout
         
-        chrome.tabs.sendMessage(tabId, 
-          { type: 'PLAYER_RUN', steps: [step], row }, 
-          { frameId }, 
-          (reply) => {
-            clearTimeout(timeout);
-            slog('Received reply from content script:', JSON.stringify(reply, null, 2));
-            if (chrome.runtime.lastError) {
-              slog('Chrome runtime error:', chrome.runtime.lastError.message);
-              resolve({ ok: false, error: chrome.runtime.lastError.message });
-            } else if (!reply) {
-              slog('No response from content script');
-              resolve({ ok: false, error: 'No response from player' });
-            } else if (reply.success !== undefined) {
-              // Handle dataset-helper response format
-              slog('Received dataset-helper format response, converting to player format');
-              resolve({ ok: reply.success, error: reply.error });
-            } else {
-              // Handle enhanced-player response format
-              resolve(reply);
+        try {
+          chrome.tabs.sendMessage(tabId, 
+            { type: 'PLAYER_RUN', steps: [step], row }, 
+            { frameId }, 
+            (reply) => {
+              clearTimeout(timeout);
+              slog('Received reply from content script:', JSON.stringify(reply, null, 2));
+              if (chrome.runtime.lastError) {
+                slog('Chrome runtime error:', chrome.runtime.lastError.message);
+                slog('Error details:', {
+                  message: chrome.runtime.lastError.message,
+                  tabId: tabId,
+                  frameId: frameId
+                });
+                resolve({ ok: false, error: chrome.runtime.lastError.message });
+              } else if (!reply) {
+                slog('No response from content script');
+                resolve({ ok: false, error: 'No response from player' });
+              } else if (reply.success !== undefined) {
+                // Handle dataset-helper response format
+                slog('Received dataset-helper format response, converting to player format');
+                resolve({ ok: reply.success, error: reply.error });
+              } else {
+                // Handle enhanced-player response format
+                resolve(reply);
+              }
             }
-          }
-        );
+          );
+        } catch (error) {
+          clearTimeout(timeout);
+          slog('Error sending message to content script:', error);
+          resolve({ ok: false, error: error.message });
+        }
       });
     } catch (error) {
       slog('Error running step in frame:', error);
@@ -1259,6 +1273,11 @@
           case 'PLAYER_STEP_ERROR':
             // Handle step error from content script
             await handleStepError(msg, send);
+            break;
+            
+          case 'PLAYER_READY':
+            slog('Enhanced player is ready');
+            send({ ok: true });
             break;
             
           case 'DATASET_BUTTON_SUCCESS':
