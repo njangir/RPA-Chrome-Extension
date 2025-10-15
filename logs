@@ -1,0 +1,46 @@
+[MVP-Enhanced][sw] === RUNNING STEP IN FRAME ===
+sw.js:17 [MVP-Enhanced][sw] Tab ID: 450171671
+sw.js:17 [MVP-Enhanced][sw] Step type: click
+sw.js:17 [MVP-Enhanced][sw] Step object: {
+  "id": "70f82053-4a44-4679-9854-2964d55e8dd8",
+  "type": "click",
+  "target": {
+    "css": "#__item0-__xmlview2--menuTree-6-content",
+    "signature": {
+      "tag": "div",
+      "id": "__item0-__xmlview2--menuTree-6-content",
+      "classes": [
+        "sapMLIBContent"
+      ],
+      "nthOfType": 1,
+      "textSnippet": "System Administration"
+    }
+  },
+  "framePath": [
+    {
+      "frameId": 0,
+      "url": "https://capgemitec.plateau.com/learning/admin/theming/updateThemingInfo.do?4102444799=0#/learning/systemApp@/adminHome",
+      "parentFrameId": -1
+    }
+  ],
+  "timestamp": 1760528777557,
+  "url": "https://capgemitec.plateau.com/learning/admin/theming/updateThemingInfo.do?4102444799=0#/learning/systemApp@/adminHome",
+  "delay": 0,
+  "frameId": 0
+}
+sw.js:17 [MVP-Enhanced][sw] Row data: {}
+sw.js:17 [MVP-Enhanced][sw] Resolved frame ID: 0
+sw.js:17 [MVP-Enhanced][sw] Injecting scripts...
+sw.js:17 [MVP-Enhanced][sw] Successfully injected scripts into frame 0
+sw.js:17 [MVP-Enhanced][sw] Scripts injected successfully
+sw.js:17 [MVP-Enhanced][sw] Sending PLAYER_RUN message to content script...
+sw.js:17 [MVP-Enhanced][sw] Received reply from content script: {
+  "success": false,
+  "error": "Unknown message type"
+}
+sw.js:17 [MVP-Enhanced][sw] Error during playback: Error: Step 1 failed: Unknown message type
+    at playAll (sw.js:826:19)
+    at async sw.js:1168:13
+sw.js:17 [MVP-Enhanced][sw] Error handling message: Error: Step 1 failed: Unknown message type
+    at playAll (sw.js:826:19)
+    at async sw.js:1168:13
