@@ -14,6 +14,7 @@
   let seedRow = null;
   let mutationObserver = null;
   let isRecording = false;
+  let lastStepTimestamp = null; // Track timestamp of last recorded step
   
   log('attaching enhanced listeners… (frame url=' + location.href + ')');
   
@@ -52,8 +53,28 @@
     return {};
   }
 
-  // Enhanced step sending with retry mechanism
+  // Calculate delay since last step
+  function calculateDelay() {
+    const now = Date.now();
+    if (lastStepTimestamp === null) {
+      // First step - no delay
+      return 0;
+    }
+    const delay = now - lastStepTimestamp;
+    return Math.max(0, delay); // Ensure non-negative delay
+  }
+
+  // Enhanced step sending with retry mechanism and delay tracking
   function sendStep(step) {
+    // Calculate delay since last step
+    const delay = calculateDelay();
+    step.delay = delay;
+    
+    // Update last step timestamp
+    lastStepTimestamp = step.timestamp;
+    
+    log('Sending step with delay:', delay + 'ms');
+    
     const sendWithRetry = (attempt = 1) => {
       chrome.runtime.sendMessage(
         { type: 'RECORDER_STEP', payload: step }, 
@@ -68,6 +89,113 @@
       );
     };
     sendWithRetry();
+  }
+
+  // Extract step recording functions
+  function recordExtractTitle() {
+    if (!isRecording) return;
+    
+    try {
+      const title = extractPageTitle();
+      const step = {
+        id: crypto.randomUUID(),
+        type: 'extract_title',
+        target: C.buildLocator ? C.buildLocator(document.body) : { css: 'body', signature: {} },
+        framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+        extractedData: {
+          title: title,
+          timestamp: Date.now()
+        },
+        timestamp: Date.now(),
+        url: location.href
+      };
+      
+      log('record extract title', title);
+      sendStep(step);
+      
+      // Also send to clips system
+      chrome.runtime.sendMessage({
+        type: 'RECORDER_EXTRACT',
+        payload: {
+          action: 'extract_title',
+          title: title,
+          timestamp: Date.now(),
+          url: location.href
+        }
+      });
+    } catch (err) {
+      log('ERR recordExtractTitle', err);
+    }
+  }
+
+  function recordExtractUrl() {
+    if (!isRecording) return;
+    
+    try {
+      const url = extractPageUrl();
+      const step = {
+        id: crypto.randomUUID(),
+        type: 'extract_url',
+        target: C.buildLocator ? C.buildLocator(document.body) : { css: 'body', signature: {} },
+        framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+        extractedData: {
+          url: url,
+          timestamp: Date.now()
+        },
+        timestamp: Date.now(),
+        url: location.href
+      };
+      
+      log('record extract url', url);
+      sendStep(step);
+      
+      // Also send to clips system
+      chrome.runtime.sendMessage({
+        type: 'RECORDER_EXTRACT',
+        payload: {
+          action: 'extract_url',
+          url: url,
+          timestamp: Date.now(),
+          url: location.href
+        }
+      });
+    } catch (err) {
+      log('ERR recordExtractUrl', err);
+    }
+  }
+
+  function recordExtractMetadata() {
+    if (!isRecording) return;
+    
+    try {
+      const metadata = extractPageMetadata();
+      const step = {
+        id: crypto.randomUUID(),
+        type: 'extract_metadata',
+        target: C.buildLocator ? C.buildLocator(document.body) : { css: 'body', signature: {} },
+        framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+        extractedData: metadata,
+        timestamp: Date.now(),
+        url: location.href
+      };
+      
+      log('record extract metadata', metadata);
+      sendStep(step);
+      
+      // Also send to clips system
+      chrome.runtime.sendMessage({
+        type: 'RECORDER_EXTRACT',
+        payload: {
+          action: 'extract_metadata',
+          title: metadata.title,
+          url: metadata.url,
+          timestamp: Date.now(),
+          url: location.href
+        }
+      });
+    } catch (err) {
+      log('ERR recordExtractMetadata', err);
+    }
   }
 
   // Enhanced click handler with better element detection
@@ -90,7 +218,7 @@
         id: crypto.randomUUID(),
         type: 'click',
         target: C.buildLocator ? C.buildLocator(el) : { css: '', signature: {} },
-        framePath: C.getFramePath ? C.getFramePath() : { frameIds: [] },
+        framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
         timestamp: Date.now(),
         url: location.href
       };
@@ -110,6 +238,12 @@
       const el = e.target;
       if (!el || !(el instanceof Element)) return;
       
+      // Handle file inputs specially
+      if (C.isFileInput && C.isFileInput(el)) {
+        handleFileInputChange(el);
+        return;
+      }
+      
       if (!C.isTextInput ? C.isTextInput(el) : false) return;
       
       const value = el.isContentEditable ? el.innerText : el.value;
@@ -123,7 +257,7 @@
         id: crypto.randomUUID(),
         type: 'input',
         target: C.buildLocator ? C.buildLocator(el) : { css: '', signature: {} },
-        framePath: C.getFramePath ? C.getFramePath() : { frameIds: [] },
+        framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
         originalTextSample: value,
         ...placeholder,
         timestamp: Date.now(),
@@ -137,39 +271,144 @@
     }
   }
 
+  // Handle file input changes
+  function handleFileInputChange(el) {
+    try {
+      const files = el.files;
+      const fileNames = Array.from(files).map(file => file.name).join(', ');
+      
+      const step = {
+        id: crypto.randomUUID(),
+        type: 'file_upload',
+        target: C.buildLocator ? C.buildLocator(el) : { css: '', signature: {} },
+        framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+        fileNames: fileNames,
+        fileCount: files.length,
+        accept: el.getAttribute('accept') || '',
+        multiple: el.hasAttribute('multiple'),
+        timestamp: Date.now(),
+        url: location.href
+      };
+      
+      log('record file upload', step.target.css, 'files:', fileNames);
+      sendStep(step);
+    } catch (err) {
+      log('ERR handleFileInputChange', err);
+    }
+  }
+
+  // Extract page data functions
+  function extractPageTitle() {
+    try {
+      return document.title || '';
+    } catch (err) {
+      log('ERR extractPageTitle', err);
+      return '';
+    }
+  }
+
+  function extractPageUrl() {
+    try {
+      return location.href || '';
+    } catch (err) {
+      log('ERR extractPageUrl', err);
+      return '';
+    }
+  }
+
+  function extractPageMetadata() {
+    try {
+      return {
+        title: extractPageTitle(),
+        url: extractPageUrl(),
+        timestamp: Date.now(),
+        frameUrl: location.href
+      };
+    } catch (err) {
+      log('ERR extractPageMetadata', err);
+      return {
+        title: '',
+        url: '',
+        timestamp: Date.now(),
+        frameUrl: location.href
+      };
+    }
+  }
+
   // Enhanced keyboard handler
   function onKeydown(e) {
     if (!isRecording) return;
     
     try {
-      const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
-      if (!mod) return;
+      const key = e.key;
+      const code = e.code;
+      const ctrlKey = e.ctrlKey;
+      const shiftKey = e.shiftKey;
+      const altKey = e.altKey;
+      const metaKey = e.metaKey;
       
-      const key = String(e.key || '').toLowerCase();
-      let action = null;
+      // Check for important individual keys
+      const importantKeys = [
+        'Tab', 'Enter', 'Escape', 'ArrowUp', 'ArrowDown', 
+        'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown',
+        'Backspace', 'Delete', 'Insert', 'F1', 'F2', 'F3', 'F4', 'F5', 
+        'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'
+      ];
       
-      if (key === 'a') action = 'selectAll';
-      else if (key === 'c') action = 'copy';
-      else if (key === 'v') action = 'paste';
-      else if (key === 'x') action = 'cut';
-      else if (key === 'z') action = 'undo';
-      else if (key === 'y') action = 'redo';
+      // Check for modifier combinations
+      const hasModifiers = ctrlKey || shiftKey || altKey || metaKey;
+      const isImportantKey = importantKeys.includes(key);
       
-      if (!action) return;
+      // Record individual important keys (without modifiers)
+      if (isImportantKey && !hasModifiers) {
+        const el = document.activeElement || e.target;
+        const step = {
+          id: crypto.randomUUID(),
+          type: 'key_press',
+          key: key,
+          code: code,
+          target: C.buildLocator ? C.buildLocator(el instanceof Element ? el : document.body) : { css: '', signature: {} },
+          framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+          timestamp: Date.now(),
+          url: location.href
+        };
+        
+        log('record key press', key, step.target.css);
+        sendStep(step);
+        return;
+      }
       
-      const el = document.activeElement || e.target;
-      const step = {
-        id: crypto.randomUUID(),
-        type: 'shortcut',
-        action,
-        target: C.buildLocator ? C.buildLocator(el instanceof Element ? el : document.body) : { css: '', signature: {} },
-        framePath: C.getFramePath ? C.getFramePath() : { frameIds: [] },
-        timestamp: Date.now(),
-        url: location.href
-      };
-      
-      log('record shortcut', action, step.target.css);
-      sendStep(step);
+      // Record modifier combinations
+      if (hasModifiers) {
+        const mod = (ctrlKey || metaKey) && !altKey;
+        if (!mod) return;
+        
+        const keyLower = String(key || '').toLowerCase();
+        let action = null;
+        
+        if (keyLower === 'a') action = 'selectAll';
+        else if (keyLower === 'c') action = 'copy';
+        else if (keyLower === 'v') action = 'paste';
+        else if (keyLower === 'x') action = 'cut';
+        else if (keyLower === 'z') action = 'undo';
+        else if (keyLower === 'y') action = 'redo';
+        
+        if (!action) return;
+        
+        const el = document.activeElement || e.target;
+        const step = {
+          id: crypto.randomUUID(),
+          type: 'shortcut',
+          action,
+          target: C.buildLocator ? C.buildLocator(el instanceof Element ? el : document.body) : { css: '', signature: {} },
+          framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
+          timestamp: Date.now(),
+          url: location.href
+        };
+        
+        log('record shortcut', action, step.target.css);
+        sendStep(step);
+      }
     } catch (err) {
       log('ERR onKeydown', err);
     }
@@ -203,7 +442,7 @@
           id: crypto.randomUUID(),
           type: 'text_selection',
           target: context.locator,
-          framePath: C.getFramePath ? C.getFramePath() : { frameIds: [] },
+          framePath: C.getFramePath ? C.getFramePath() : { frameUrls: [] },
           selectedText: selection.text,
           elementText: context.elementText,
           selectionStart: selection.startOffset,
@@ -351,6 +590,7 @@
     if (isRecording) return;
     
     isRecording = true;
+    lastStepTimestamp = null; // Reset delay tracking
     log('Starting enhanced recording...');
     
     // Add event listeners
@@ -394,6 +634,11 @@
     document.body.style.outline = '';
     document.body.style.outlineOffset = '';
   }
+
+  // Expose extraction functions globally for external access
+  window.recordExtractTitle = recordExtractTitle;
+  window.recordExtractUrl = recordExtractUrl;
+  window.recordExtractMetadata = recordExtractMetadata;
 
   // Message handling
   chrome.runtime.onMessage.addListener((msg, sender, send) => {

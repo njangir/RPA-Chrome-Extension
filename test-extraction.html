@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📄 Extraction Test Page - Chrome Extension Testing</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .test-instructions {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .test-instructions h3 {
+            margin-top: 0;
+            color: #0066cc;
+        }
+        
+        .test-instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .test-instructions li {
+            margin: 5px 0;
+        }
+        
+        .extraction-test {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .extraction-test h4 {
+            margin-top: 0;
+            color: #856404;
+        }
+        
+        .extraction-test p {
+            margin: 5px 0;
+            color: #856404;
+        }
+        
+        .extraction-test strong {
+            color: #6c5ce7;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 5px rgba(0,123,255,0.3);
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        .extract-btn {
+            background: #28a745;
+        }
+        
+        .extract-btn:hover {
+            background: #218838;
+        }
+        
+        .test-btn {
+            background: #dc3545;
+        }
+        
+        .test-btn:hover {
+            background: #c82333;
+        }
+        
+        .success-btn {
+            background: #28a745;
+        }
+        
+        .success-btn:hover {
+            background: #218838;
+        }
+        
+        .warning-btn {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .warning-btn:hover {
+            background: #e0a800;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .test-results {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .test-results h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .test-results .result-item {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .test-results .result-item.success {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        
+        .test-results .result-item.error {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+        
+        .test-results .result-item.warning {
+            border-color: #ffc107;
+            background: #fff3cd;
+        }
+        
+        .page-info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .page-info h4 {
+            margin-top: 0;
+            color: #0c5460;
+        }
+        
+        .page-info .info-item {
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        
+        .dynamic-content {
+            margin: 20px 0;
+            padding: 15px;
+            border: 2px dashed #ddd;
+            border-radius: 5px;
+            min-height: 50px;
+        }
+        
+        .dynamic-content:empty::before {
+            content: "Dynamic content will appear here";
+            color: #999;
+            font-style: italic;
+        }
+        
+        .extraction-demo {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .extraction-demo h4 {
+            margin-top: 0;
+            color: #495057;
+        }
+        
+        .extraction-demo .demo-item {
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .extraction-demo .demo-item strong {
+            color: #495057;
+        }
+        
+        .extraction-demo .demo-item .value {
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 Extraction Test Page</h1>
+        
+        <div class="test-instructions">
+            <h3>🧪 Testing Instructions</h3>
+            <p>This page tests the extraction functionality of the Chrome extension:</p>
+            <ol>
+                <li>Load the Chrome extension in your browser</li>
+                <li>Start recording in the extension</li>
+                <li>Test the extraction functions below</li>
+                <li>Check that extraction steps are recorded in the extension</li>
+                <li>Test playback to see the extraction simulation</li>
+                <li>Export extracted data using the "📊 Export Extracted Data" button</li>
+            </ol>
+        </div>
+        
+        <div class="page-info">
+            <h4>📊 Current Page Information</h4>
+            <div class="info-item"><strong>Title:</strong> <span id="currentTitle">Loading...</span></div>
+            <div class="info-item"><strong>URL:</strong> <span id="currentUrl">Loading...</span></div>
+            <div class="info-item"><strong>Timestamp:</strong> <span id="currentTimestamp">Loading...</span></div>
+            <div class="info-item"><strong>User Agent:</strong> <span id="currentUserAgent">Loading...</span></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🎯 Manual Extraction Testing</h3>
+            <div class="extraction-test">
+                <h4>Test 1: Extract Page Title</h4>
+                <p>Click the button below to manually extract the page title:</p>
+                <button onclick="testExtractTitle()" class="extract-btn">📄 Extract Title</button>
+                <div id="titleResult" class="dynamic-content"></div>
+            </div>
+            
+            <div class="extraction-test">
+                <h4>Test 2: Extract Page URL</h4>
+                <p>Click the button below to manually extract the page URL:</p>
+                <button onclick="testExtractUrl()" class="extract-btn">🔗 Extract URL</button>
+                <div id="urlResult" class="dynamic-content"></div>
+            </div>
+            
+            <div class="extraction-test">
+                <h4>Test 3: Extract Page Metadata</h4>
+                <p>Click the button below to extract both title and URL:</p>
+                <button onclick="testExtractMetadata()" class="extract-btn">📊 Extract Metadata</button>
+                <div id="metadataResult" class="dynamic-content"></div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔄 Dynamic Content Testing</h3>
+            <div class="extraction-test">
+                <h4>Test 4: Dynamic Title Changes</h4>
+                <p>Test extraction with dynamically changing page titles:</p>
+                <button onclick="changePageTitle()" class="test-btn">🔄 Change Page Title</button>
+                <button onclick="testExtractTitle()" class="extract-btn">📄 Extract Current Title</button>
+                <div id="dynamicTitleResult" class="dynamic-content"></div>
+            </div>
+            
+            <div class="extraction-test">
+                <h4>Test 5: Dynamic URL Changes</h4>
+                <p>Test extraction with dynamically changing URLs (simulated):</p>
+                <button onclick="simulateUrlChange()" class="test-btn">🔄 Simulate URL Change</button>
+                <button onclick="testExtractUrl()" class="extract-btn">🔗 Extract Current URL</button>
+                <div id="dynamicUrlResult" class="dynamic-content"></div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📝 Form Integration Testing</h3>
+            <div class="extraction-test">
+                <h4>Test 6: Form with Page Data</h4>
+                <p>Test extraction in the context of form interactions:</p>
+                <form id="testForm">
+                    <div class="form-group">
+                        <label for="pageTitle">Page Title:</label>
+                        <input type="text" id="pageTitle" placeholder="Will be filled with extracted title">
+                    </div>
+                    <div class="form-group">
+                        <label for="pageUrl">Page URL:</label>
+                        <input type="text" id="pageUrl" placeholder="Will be filled with extracted URL">
+                    </div>
+                    <button type="button" onclick="fillFormWithExtractedData()" class="extract-btn">📝 Fill Form with Extracted Data</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🎮 Interactive Extraction Testing</h3>
+            <div class="extraction-test">
+                <h4>Test 7: Interactive Extraction</h4>
+                <p>Test extraction with user interactions:</p>
+                <button onclick="startInteractiveTest()" class="test-btn">🎮 Start Interactive Test</button>
+                <button onclick="testExtractMetadata()" class="extract-btn">📊 Extract During Interaction</button>
+                <div id="interactiveResult" class="dynamic-content"></div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>✅ Success Scenarios</h3>
+            <div class="extraction-test">
+                <h4>Test 8: Working Extraction</h4>
+                <p>These extractions should work normally:</p>
+                <button onclick="testAllExtractions()" class="success-btn">✅ Test All Extractions</button>
+                <div id="successResult" class="dynamic-content"></div>
+            </div>
+        </div>
+        
+        <div class="test-results" id="testResults">
+            <h3>Test Results:</h3>
+            <div id="resultsContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = [];
+        let originalTitle = document.title;
+        let originalUrl = location.href;
+        
+        // Initialize page info
+        function initializePageInfo() {
+            document.getElementById('currentTitle').textContent = document.title;
+            document.getElementById('currentUrl').textContent = location.href;
+            document.getElementById('currentTimestamp').textContent = new Date().toLocaleString();
+            document.getElementById('currentUserAgent').textContent = navigator.userAgent.substring(0, 50) + '...';
+        }
+        
+        // Test extraction functions
+        function testExtractTitle() {
+            const title = document.title || '';
+            const result = document.getElementById('titleResult');
+            result.innerHTML = `
+                <div class="extraction-demo">
+                    <h4>📄 Extracted Title:</h4>
+                    <div class="demo-item">
+                        <strong>Title:</strong> <span class="value">${title}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Length:</strong> <span class="value">${title.length} characters</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Timestamp:</strong> <span class="value">${new Date().toLocaleString()}</span>
+                    </div>
+                </div>
+            `;
+            logTestResult('Extract Title', true, `Extracted title: ${title}`);
+        }
+        
+        function testExtractUrl() {
+            const url = location.href || '';
+            const result = document.getElementById('urlResult');
+            result.innerHTML = `
+                <div class="extraction-demo">
+                    <h4>🔗 Extracted URL:</h4>
+                    <div class="demo-item">
+                        <strong>URL:</strong> <span class="value">${url}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Domain:</strong> <span class="value">${new URL(url).hostname}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Path:</strong> <span class="value">${new URL(url).pathname}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Timestamp:</strong> <span class="value">${new Date().toLocaleString()}</span>
+                    </div>
+                </div>
+            `;
+            logTestResult('Extract URL', true, `Extracted URL: ${url}`);
+        }
+        
+        function testExtractMetadata() {
+            const metadata = {
+                title: document.title || '',
+                url: location.href || '',
+                timestamp: Date.now(),
+                frameUrl: location.href
+            };
+            
+            const result = document.getElementById('metadataResult');
+            result.innerHTML = `
+                <div class="extraction-demo">
+                    <h4>📊 Extracted Metadata:</h4>
+                    <div class="demo-item">
+                        <strong>Title:</strong> <span class="value">${metadata.title}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>URL:</strong> <span class="value">${metadata.url}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Domain:</strong> <span class="value">${new URL(metadata.url).hostname}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Timestamp:</strong> <span class="value">${new Date(metadata.timestamp).toLocaleString()}</span>
+                    </div>
+                </div>
+            `;
+            logTestResult('Extract Metadata', true, `Extracted metadata: ${metadata.title} | ${metadata.url}`);
+        }
+        
+        // Dynamic content testing
+        function changePageTitle() {
+            const titles = [
+                '📄 Original Test Page',
+                '🔄 Changed Title - Test Page',
+                '⚡ Dynamic Title Update',
+                '🎯 Final Test Title',
+                originalTitle
+            ];
+            
+            const randomTitle = titles[Math.floor(Math.random() * titles.length)];
+            document.title = randomTitle;
+            
+            const result = document.getElementById('dynamicTitleResult');
+            result.innerHTML = `
+                <div class="extraction-demo">
+                    <h4>🔄 Title Changed:</h4>
+                    <div class="demo-item">
+                        <strong>New Title:</strong> <span class="value">${randomTitle}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Change Time:</strong> <span class="value">${new Date().toLocaleString()}</span>
+                    </div>
+                </div>
+            `;
+            
+            // Update page info
+            document.getElementById('currentTitle').textContent = randomTitle;
+        }
+        
+        function simulateUrlChange() {
+            const baseUrl = location.origin + location.pathname;
+            const urlParams = [
+                '?test=1&extraction=true',
+                '?page=2&filter=active',
+                '?search=test&sort=date',
+                '?id=123&action=extract',
+                ''
+            ];
+            
+            const randomParam = urlParams[Math.floor(Math.random() * urlParams.length)];
+            const newUrl = baseUrl + randomParam;
+            
+            // Update URL without navigation
+            history.pushState({}, '', newUrl);
+            
+            const result = document.getElementById('dynamicUrlResult');
+            result.innerHTML = `
+                <div class="extraction-demo">
+                    <h4>🔄 URL Changed:</h4>
+                    <div class="demo-item">
+                        <strong>New URL:</strong> <span class="value">${newUrl}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Parameters:</strong> <span class="value">${randomParam || 'None'}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Change Time:</strong> <span class="value">${new Date().toLocaleString()}</span>
+                    </div>
+                </div>
+            `;
+            
+            // Update page info
+            document.getElementById('currentUrl').textContent = newUrl;
+        }
+        
+        // Form integration testing
+        function fillFormWithExtractedData() {
+            const titleInput = document.getElementById('pageTitle');
+            const urlInput = document.getElementById('pageUrl');
+            
+            titleInput.value = document.title;
+            urlInput.value = location.href;
+            
+            logTestResult('Form Integration', true, 'Form filled with extracted data');
+        }
+        
+        // Interactive testing
+        function startInteractiveTest() {
+            const result = document.getElementById('interactiveResult');
+            result.innerHTML = `
+                <div class="extraction-demo">
+                    <h4>🎮 Interactive Test Started:</h4>
+                    <div class="demo-item">
+                        <strong>Status:</strong> <span class="value">Ready for extraction</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Instructions:</strong> <span class="value">Click "Extract During Interaction" to test</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Success testing
+        function testAllExtractions() {
+            const result = document.getElementById('successResult');
+            
+            const title = document.title;
+            const url = location.href;
+            const timestamp = Date.now();
+            
+            result.innerHTML = `
+                <div class="extraction-demo">
+                    <h4>✅ All Extractions Successful:</h4>
+                    <div class="demo-item">
+                        <strong>Title:</strong> <span class="value">${title}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>URL:</strong> <span class="value">${url}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Domain:</strong> <span class="value">${new URL(url).hostname}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Timestamp:</strong> <span class="value">${new Date(timestamp).toLocaleString()}</span>
+                    </div>
+                    <div class="demo-item">
+                        <strong>Status:</strong> <span class="value" style="color: #28a745;">✅ All extractions working correctly</span>
+                    </div>
+                </div>
+            `;
+            
+            logTestResult('All Extractions', true, 'All extraction functions working correctly');
+        }
+        
+        // Test result logging
+        function logTestResult(testName, success, message) {
+            testResults.push({
+                test: testName,
+                success: success,
+                message: message,
+                timestamp: new Date().toISOString()
+            });
+            
+            updateTestResults();
+        }
+        
+        function updateTestResults() {
+            const resultsDiv = document.getElementById('testResults');
+            const resultsContent = document.getElementById('resultsContent');
+            
+            if (testResults.length > 0) {
+                resultsDiv.style.display = 'block';
+                
+                let results = '<h4>Recent Test Results:</h4>';
+                results += '<div class="extraction-test">';
+                
+                testResults.slice(-10).reverse().forEach(result => {
+                    const resultClass = result.success ? 'success' : 'error';
+                    results += `
+                        <div class="result-item ${resultClass}">
+                            <strong>${result.test}</strong> - 
+                            ${result.success ? '✅' : '❌'} 
+                            ${result.message} - 
+                            ${new Date(result.timestamp).toLocaleString()}
+                        </div>
+                    `;
+                });
+                
+                results += '</div>';
+                resultsContent.innerHTML = results;
+            }
+        }
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            initializePageInfo();
+            console.log('Extraction test page loaded');
+            console.log('Start recording in the extension and test extraction functionality');
+            
+            // Log page load
+            logTestResult('Page Load', true, 'Extraction test page loaded successfully');
+        });
+        
+        // Global error handler
+        window.addEventListener('error', function(event) {
+            console.error('Global error caught:', event.error);
+            logTestResult('Global Error', false, event.error.message);
+        });
+        
+        // Unhandled promise rejection handler
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled promise rejection:', event.reason);
+            logTestResult('Promise Rejection', false, event.reason.message || event.reason);
+        });
+    </script>
+</body>
+</html>

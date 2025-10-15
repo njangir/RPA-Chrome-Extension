@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preloaded Flows Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Preloaded Flows Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Load Preloaded Flows Data</h2>
+        <div id="loadTest"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Test CSV Conversion</h2>
+        <div id="csvTest"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Test Flow Selection</h2>
+        <div id="selectionTest"></div>
+    </div>
+
+    <script src="preloaded-flows.js"></script>
+    <script>
+        // Test 1: Load preloaded flows data
+        function testLoadData() {
+            const result = document.getElementById('loadTest');
+            try {
+                if (typeof PRELOADED_FLOWS !== 'undefined') {
+                    const flowCount = Object.keys(PRELOADED_FLOWS).length;
+                    result.innerHTML = `
+                        <div class="success">
+                            ✅ Successfully loaded ${flowCount} preloaded flows<br>
+                            Flows: ${Object.keys(PRELOADED_FLOWS).join(', ')}
+                        </div>
+                    `;
+                } else {
+                    result.innerHTML = '<div class="error">❌ PRELOADED_FLOWS not defined</div>';
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Test 2: Test CSV conversion
+        function testCSVConversion() {
+            const result = document.getElementById('csvTest');
+            try {
+                const testData = [
+                    { name: 'John', email: 'john@example.com', age: 30 },
+                    { name: 'Jane', email: 'jane@example.com', age: 25 }
+                ];
+                
+                // Simple CSV conversion function (copied from panel.js)
+                function convertToCSV(data) {
+                    if (!Array.isArray(data) || data.length === 0) return '';
+                    const headers = Object.keys(data[0]);
+                    const csvRows = [
+                        headers.join(','),
+                        ...data.map(row => 
+                            headers.map(header => {
+                                const value = row[header] || '';
+                                if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+                                    return `"${value.replace(/"/g, '""')}"`;
+                                }
+                                return value;
+                            }).join(',')
+                        )
+                    ];
+                    return csvRows.join('\n');
+                }
+                
+                const csv = convertToCSV(testData);
+                result.innerHTML = `
+                    <div class="success">
+                        ✅ CSV conversion successful<br>
+                        <pre>${csv}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Test 3: Test flow selection
+        function testFlowSelection() {
+            const result = document.getElementById('selectionTest');
+            try {
+                if (typeof PRELOADED_FLOWS !== 'undefined') {
+                    const firstFlow = Object.values(PRELOADED_FLOWS)[0];
+                    if (firstFlow) {
+                        result.innerHTML = `
+                            <div class="success">
+                                ✅ Flow selection test successful<br>
+                                Selected: ${firstFlow.name}<br>
+                                Steps: ${firstFlow.steps.length}<br>
+                                CSV Template Columns: ${Object.keys(firstFlow.csvTemplate[0] || {}).join(', ')}
+                            </div>
+                        `;
+                    } else {
+                        result.innerHTML = '<div class="error">❌ No flows available</div>';
+                    }
+                } else {
+                    result.innerHTML = '<div class="error">❌ PRELOADED_FLOWS not defined</div>';
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Run all tests
+        testLoadData();
+        testCSVConversion();
+        testFlowSelection();
+    </script>
+</body>
+</html>
+

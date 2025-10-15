@@ -266,36 +266,53 @@
     return false;
   }
 
-  // Enhanced frame path detection
+  // File input detection
+  function isFileInput(el) {
+    if (!el) return false;
+    
+    const tag = el.tagName?.toLowerCase();
+    if (tag === 'input') {
+      const type = (el.getAttribute('type') || 'text').toLowerCase();
+      return type === 'file';
+    }
+    
+    return false;
+  }
+
+  // Enhanced frame path detection - URL-based for portability
   function getFramePath() {
     try {
-      // Try to get frame information from various sources
-      const frameIds = [];
+      // Return URL-based frame path for portability
+      const frameUrls = [];
       
       // Method 1: Check if we're in a frame
       if (window !== window.top) {
-        // We're in an iframe, try to determine frame hierarchy
+        // We're in an iframe, collect URL hierarchy
         try {
-          const frames = window.parent.frames;
-          for (let i = 0; i < frames.length; i++) {
-            try {
-              if (frames[i] === window) {
-                frameIds.push(i);
-                break;
-              }
-            } catch (e) {
-              // Cross-origin frame, can't access
+          // Add current frame URL
+          frameUrls.push(location.href);
+          
+          // Try to get parent frame URL
+          try {
+            if (window.parent && window.parent.location) {
+              frameUrls.push(window.parent.location.href);
             }
+          } catch (e) {
+            // Cross-origin restriction - can't access parent URL
+            frameUrls.push('cross-origin-parent');
           }
         } catch (e) {
           // Cross-origin restriction
         }
+      } else {
+        // We're in the main frame
+        frameUrls.push(location.href);
       }
       
-      return { frameIds };
+      return { frameUrls };
     } catch (error) {
       log('Error getting frame path:', error);
-      return { frameIds: [] };
+      return { frameUrls: [location.href] };
     }
   }
 
@@ -670,6 +687,7 @@
     log,
     buildLocator,
     isTextInput,
+    isFileInput,
     getFramePath,
     inferPlaceholder,
     getValueFromRow,

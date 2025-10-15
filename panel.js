@@ -1,20 +1,23 @@
 
 // panel.js
 const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
+const pauseResumeBtn = document.getElementById('pauseResumeBtn');
+const stopPlayBtn = document.getElementById('stopPlayBtn');
 const getBtn = document.getElementById('getBtn');
 const clearBtn = document.getElementById('clearBtn');
-const playBtn = document.getElementById('playBtn');
+// playBtn removed - functionality moved to stopPlayBtn
 const stepCountEl = document.getElementById('stepCount');
 const stepsJsonEl = document.getElementById('stepsJson');
 const statusEl = document.getElementById('status');
+const saveJsonBtn = document.getElementById('saveJsonBtn');
+const resetJsonBtn = document.getElementById('resetJsonBtn');
+const jsonStatus = document.getElementById('jsonStatus');
 const jsonInput = document.getElementById('jsonInput');
 const skipFirstRowEl = document.getElementById('skipFirstRow');
 const manualLoopEl = document.getElementById('manualLoop');
 const loopCountEl = document.getElementById('loopCount');
 const loopControls = document.getElementById('loopControls');
 const nextBtn = document.getElementById('nextBtn');
-const stopPlayBtn = document.getElementById('stopPlayBtn');
 
 // Flows UI
 const flowNameEl = document.getElementById('flowName');
@@ -27,6 +30,7 @@ const deleteFlowBtn = document.getElementById('deleteFlowBtn');
 const clipCountEl = document.getElementById('clipCount');
 const exportClipsJsonBtn = document.getElementById('exportClipsJsonBtn');
 const exportClipsCsvBtn = document.getElementById('exportClipsCsvBtn');
+const exportExtractedDataBtn = document.getElementById('exportExtractedDataBtn');
 
 // Accordion UI
 const accordionViewBtn = document.getElementById('accordionViewBtn');
@@ -49,37 +53,42 @@ const datasetButtons = document.getElementById('datasetButtons');
 const startUrlDisplay = document.getElementById('startUrlDisplay');
 const navigateToStartBtn = document.getElementById('navigateToStartBtn');
 
-// Test Flow UI
-const testFlowBtn = document.getElementById('testFlowBtn');
-const testFlowModal = document.getElementById('testFlowModal');
-const closeTestFlowBtn = document.getElementById('closeTestFlowBtn');
-const currentStepNumber = document.getElementById('currentStepNumber');
-const totalSteps = document.getElementById('totalSteps');
-const stepDescription = document.getElementById('stepDescription');
-const highlightDetails = document.getElementById('highlightDetails');
-const highlightElementBtn = document.getElementById('highlightElementBtn');
-const recheckElementBtn = document.getElementById('recheckElementBtn');
-const changeSelectorBtn = document.getElementById('changeSelectorBtn');
-const testSelectorDropdown = document.getElementById('testSelectorDropdown');
-// Removed executeStepBtn - no longer needed
-const confirmElementBtn = document.getElementById('confirmElementBtn');
-const skipStepBtn = document.getElementById('skipStepBtn');
-const stopTestBtn = document.getElementById('stopTestBtn');
-const testProgressFill = document.getElementById('testProgressFill');
-const testProgressText = document.getElementById('testProgressText');
-
 function send(msg){ return new Promise((resolve)=> chrome.runtime.sendMessage(msg, resolve)); }
 
-// Test Flow State Management
-let testFlowState = {
-  isActive: false,
-  currentStepIndex: 0,
-  steps: [],
-  currentElement: null,
-  currentSelector: null,
-  skippedSteps: new Set(),
-  testResults: []
-};
+// Real-time refresh functionality
+let realTimeRefreshInterval = null;
+
+function startRealTimeRefresh() {
+  if (realTimeRefreshInterval) return; // Already running
+  
+  // Only start if we're actually recording
+  if (!isRecording) {
+    console.log('Not starting real-time refresh - not recording');
+    return;
+  }
+  
+  // Refresh every 500ms during recording
+  realTimeRefreshInterval = setInterval(async () => {
+    try {
+      // Double-check we're still recording before refreshing
+      if (!isRecording) {
+        console.log('Stopping real-time refresh - recording stopped');
+        stopRealTimeRefresh();
+        return;
+      }
+      await refreshSteps();
+    } catch (error) {
+      console.error('Error during real-time refresh:', error);
+    }
+  }, 500);
+}
+
+function stopRealTimeRefresh() {
+  if (realTimeRefreshInterval) {
+    clearInterval(realTimeRefreshInterval);
+    realTimeRefreshInterval = null;
+  }
+}
 
 // CSV Import functionality
 function parseCSV(csvText) {
@@ -432,16 +441,17 @@ navigateToStartBtn.addEventListener('click', async () => {
 async function refreshSteps(){
   const res = await send({ from:'panel', type:'PANEL_GET_STEPS' });
   const steps = (res && res.steps) || [];
+  console.log('Refreshing steps:', steps.length, 'steps found');
+  console.log('Steps data:', steps);
+  console.log('Response data:', res);
   stepCountEl.textContent = `${steps.length} step${steps.length===1?'':'s'}`;
-  stepsJsonEl.textContent = JSON.stringify(steps, null, 2);
-  renderAccordion(steps);
   
-  // Show/hide test flow button based on steps
-  if (steps.length > 0) {
-    testFlowBtn.classList.remove('hidden-button');
-  } else {
-    testFlowBtn.classList.add('hidden-button');
+  // Update JSON view only if it's not being actively edited
+  if (!stepsJsonEl.matches(':focus')) {
+    stepsJsonEl.value = JSON.stringify(steps, null, 2);
   }
+  
+  renderAccordion(steps);
   
   // Refresh start URL
   await refreshStartUrl();
@@ -483,8 +493,21 @@ async function refreshFlowsList(){
   flowsSelect.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join('');
 }
 
+// State tracking
+let isRecording = false;
+let isPaused = false;
+let isPlaying = false;
+
 startBtn.onclick = async () => {
-  startBtn.disabled = true; stopBtn.disabled = false;
+  startBtn.disabled = true; 
+  pauseResumeBtn.disabled = false;
+  pauseResumeBtn.textContent = 'Pause';
+  stopPlayBtn.disabled = false;
+  stopPlayBtn.textContent = 'Stop';
+  isRecording = true;
+  isPaused = false;
+  isPlaying = false;
+  
   let seedRow = null;
   try {
     const arr = JSON.parse(jsonInput.value || '[]');
@@ -493,20 +516,153 @@ startBtn.onclick = async () => {
   const res = await send({ from:'panel', type:'PANEL_START', seedRow });
   if (!res?.ok) alert('Failed to start: ' + (res?.error||''));
   await refreshSteps();
+  // Start real-time refresh during recording
+  startRealTimeRefresh();
 };
 
-stopBtn.onclick = async () => {
-  stopBtn.disabled = true; startBtn.disabled = false;
-  const res = await send({ from:'panel', type:'PANEL_STOP' });
-  if (!res?.ok) alert('Failed to stop: ' + (res?.error||''));
-  await refreshSteps();
+pauseResumeBtn.onclick = async () => {
+  if (isRecording && !isPaused) {
+    // Pause recording
+    const res = await send({ from:'panel', type:'PANEL_PAUSE' });
+    if (!res?.ok) alert('Failed to pause: ' + (res?.error||''));
+    pauseResumeBtn.textContent = 'Resume';
+    isPaused = true;
+    stopRealTimeRefresh();
+  } else if (isRecording && isPaused) {
+    // Resume recording
+    const res = await send({ from:'panel', type:'PANEL_RESUME' });
+    if (!res?.ok) alert('Failed to resume: ' + (res?.error||''));
+    pauseResumeBtn.textContent = 'Pause';
+    isPaused = false;
+    await refreshSteps();
+    startRealTimeRefresh();
+  }
+};
+
+stopPlayBtn.onclick = async () => {
+  if (isRecording) {
+    // Stop recording
+    const res = await send({ from:'panel', type:'PANEL_STOP' });
+    if (!res?.ok) alert('Failed to stop: ' + (res?.error||''));
+    
+    // Update button state immediately (before heavy operations)
+    stopPlayBtn.textContent = 'Play All';
+    pauseResumeBtn.disabled = true;
+    pauseResumeBtn.textContent = 'Pause';
+    startBtn.disabled = false;
+    isRecording = false;
+    isPaused = false;
+    
+    // Stop real-time refresh first
+    stopRealTimeRefresh();
+    
+    // Refresh steps asynchronously to avoid blocking UI
+    refreshSteps().catch(error => {
+      console.error('Error refreshing steps after stop:', error);
+    });
+  } else if (isPlaying) {
+    // Stop playback
+    const res = await send({ from:'panel', type:'PANEL_STOP_PLAYBACK' });
+    if (!res?.ok) alert('Failed to stop playback: ' + (res?.error||''));
+    stopPlayBtn.textContent = 'Play All';
+    isPlaying = false;
+  } else {
+    // Start playback - check if steps exist first
+    const res = await send({ from:'panel', type:'PANEL_GET_STEPS' });
+    const steps = (res && res.steps) || [];
+    
+    if (steps.length === 0) {
+      const userChoice = confirm(
+        'No steps recorded yet!\n\n' +
+        'Would you like to:\n' +
+        '• Click OK to load a saved flow\n' +
+        '• Click Cancel to start recording new steps'
+      );
+      
+      if (userChoice) {
+        // Focus on flows section
+        const flowsSelect = document.getElementById('flowsSelect');
+        if (flowsSelect) {
+          flowsSelect.closest('.section').scrollIntoView({ behavior: 'smooth' });
+          flowsSelect.focus();
+        }
+        alert('Please select a flow from the dropdown and click "Load"');
+      } else {
+        // Focus on start recording button
+        startBtn.focus();
+        alert('Please click "Start Recording" to begin recording new steps');
+      }
+      return;
+    }
+    
+    await playAll();
+  }
 };
 
 getBtn.onclick = refreshSteps;
 
 clearBtn.onclick = async () => { await send({ from:'panel', type:'PANEL_CLEAR_STEPS' }); await refreshSteps(); };
 
-playBtn.onclick = async () => {
+// JSON editing functionality
+saveJsonBtn.onclick = async () => {
+  try {
+    const jsonText = stepsJsonEl.value.trim();
+    if (!jsonText) {
+      jsonStatus.textContent = 'Empty JSON';
+      jsonStatus.className = 'error-message';
+      return;
+    }
+    
+    const steps = JSON.parse(jsonText);
+    if (!Array.isArray(steps)) {
+      jsonStatus.textContent = 'JSON must be an array';
+      jsonStatus.className = 'error-message';
+      return;
+    }
+    
+    // Validate step structure
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      if (!step || typeof step !== 'object') {
+        jsonStatus.textContent = `Step ${i + 1} is not a valid object`;
+        jsonStatus.className = 'error-message';
+        return;
+      }
+      if (!step.type) {
+        jsonStatus.textContent = `Step ${i + 1} missing required 'type' field`;
+        jsonStatus.className = 'error-message';
+        return;
+      }
+    }
+    
+    // Save the steps
+    const res = await send({ 
+      from: 'panel', 
+      type: 'PANEL_SET_STEPS', 
+      steps: steps 
+    });
+    
+    if (res?.ok) {
+      jsonStatus.textContent = `Saved ${steps.length} steps successfully`;
+      jsonStatus.className = 'success-message';
+      await refreshSteps();
+    } else {
+      jsonStatus.textContent = 'Failed to save: ' + (res?.error || 'Unknown error');
+      jsonStatus.className = 'error-message';
+    }
+  } catch (error) {
+    jsonStatus.textContent = 'Invalid JSON: ' + error.message;
+    jsonStatus.className = 'error-message';
+  }
+};
+
+resetJsonBtn.onclick = async () => {
+  await refreshSteps();
+  jsonStatus.textContent = 'Reset to current steps';
+  jsonStatus.className = 'success-message';
+};
+
+async function playAll() {
   let rows = [];
   try {
     rows = JSON.parse(jsonInput.value || '[]');
@@ -519,11 +675,18 @@ playBtn.onclick = async () => {
   let playRows = rows;
   if (rows.length > 0) playRows = skipFirst ? rows.slice(1) : rows;
   else if (loopCount > 0) playRows = Array.from({length: loopCount}, () => ({}));
-  else { alert('Provide a dataset or a loop count > 0'); return; }
+  else { 
+    alert('Provide a dataset or a loop count > 0'); 
+    return; 
+  }
 
-  playBtn.disabled = true;
+  // Update button state
+  stopPlayBtn.textContent = 'Stop';
+  stopPlayBtn.disabled = false;
+  isPlaying = true;
   loopControls.style.display = interactive ? 'flex' : 'none';
-  nextBtn.disabled = true; stopPlayBtn.disabled = false;
+  nextBtn.disabled = true;
+  
   try {
     // Get start URL for navigation
     let startUrl = null;
@@ -534,20 +697,90 @@ playBtn.onclick = async () => {
       console.warn('Could not get start URL:', error);
     }
     
-    const res = await send({ 
-      from:'panel', 
-      type:'PANEL_PLAY_ALL', 
-      rows: playRows, 
-      interactive,
-      startUrl 
-    });
-    if (!res?.ok) throw new Error(res?.error || 'Playback failed');
-    alert(`Played ${playRows.length} item(s).`);
-  } catch(err){ alert(String(err.message || err)); }
-  finally { playBtn.disabled = false; loopControls.style.display = 'none'; }
-};
+    // Get steps to check if we need grouped execution
+    const stepsRes = await send({ from: 'panel', type: 'PANEL_GET_STEPS' });
+    const steps = (stepsRes && stepsRes.steps) || [];
+    
+    // Check if we need grouped execution
+    const hasLoopGroups = steps.some(s => s.type === 'loop_group');
+    
+    if (hasLoopGroups) {
+      // Use grouped execution
+      console.log('Using grouped execution');
+      const groupingAnalysis = await analyzeDataGrouping();
+      
+      if (groupingAnalysis.hasGroups) {
+        console.log('Grouping preview:', groupingAnalysis.preview);
+      }
+      
+      const res = await send({ 
+        from:'panel', 
+        type:'PANEL_PLAY_ALL_GROUPED', 
+        rows: playRows, 
+        interactive,
+        startUrl,
+        groupingInfo: groupingAnalysis.hierarchy
+      });
+      
+      if (!res?.ok) throw new Error(res?.error || 'Playback failed');
+      alert(`Grouped playback completed.\n\n${groupingAnalysis.preview}`);
+    } else {
+      // Use normal execution
+      const res = await send({ 
+        from:'panel', 
+        type:'PANEL_PLAY_ALL', 
+        rows: playRows, 
+        interactive,
+        startUrl 
+      });
+      if (!res?.ok) throw new Error(res?.error || 'Playback failed');
+      alert(`Played ${playRows.length} item(s).`);
+    }
+  } catch(err){ 
+    alert(String(err.message || err)); 
+  } finally { 
+    // Reset button state
+    stopPlayBtn.textContent = 'Play All';
+    isPlaying = false;
+    loopControls.style.display = 'none'; 
+  }
+}
 
-chrome.runtime.onMessage.addListener((msg) => {
+// playBtn removed - functionality moved to stopPlayBtn
+
+// Debug function to test message flow
+async function debugMessageFlow() {
+  console.log('=== DEBUG MESSAGE FLOW TEST ===');
+  
+  try {
+    // Test service worker communication
+    console.log('Testing service worker communication...');
+    const swTest = await send({ from: 'panel', type: 'DEBUG_TEST' });
+    console.log('Service worker test result:', swTest);
+    
+    // Test getting steps
+    console.log('Testing get steps...');
+    const stepsRes = await send({ from: 'panel', type: 'PANEL_GET_STEPS' });
+    console.log('Steps result:', stepsRes);
+    
+    // Test getting start URL
+    console.log('Testing get start URL...');
+    const urlRes = await send({ from: 'panel', type: 'PANEL_GET_START_URL' });
+    console.log('Start URL result:', urlRes);
+    
+    console.log('=== END DEBUG MESSAGE FLOW TEST ===');
+  } catch (error) {
+    console.error('Debug test failed:', error);
+  }
+}
+
+// Add debug button to the panel (temporary)
+if (typeof window !== 'undefined') {
+  window.debugMessageFlow = debugMessageFlow;
+  console.log('Debug function available: window.debugMessageFlow()');
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === 'SW_AWAITING_USER') { 
     nextBtn.disabled = false; 
   } else if (msg?.type === 'DATASET_BUTTON_SUCCESS') {
@@ -560,11 +793,16 @@ chrome.runtime.onMessage.addListener((msg) => {
     }
   } else if (msg?.type === 'DATASET_DROP_SUCCESS') {
     showMessage(`Successfully dropped "${msg.key}" value into ${msg.element.tagName}`, 'success');
+  } else if (msg?.type === 'PANEL_STEP_ERROR') {
+    // Handle step error from service worker
+    handleStepError(msg.step, msg.stepIndex, msg.error, msg.context).then(result => {
+      sendResponse(result);
+    });
+    return true; // Keep message channel open for async response
   }
 });
 
 nextBtn.onclick = async () => { nextBtn.disabled = true; await send({ from:'panel', type:'PANEL_CONTINUE' }); };
-stopPlayBtn.onclick = async () => { stopPlayBtn.disabled = true; nextBtn.disabled = true; await send({ from:'panel', type:'PANEL_STOP_PLAYBACK' }); };
 
 // Flows save/load/delete
 saveFlowBtn.onclick = async () => {
@@ -608,10 +846,41 @@ exportClipsJsonBtn.onclick = async () => {
 
 exportClipsCsvBtn.onclick = async () => {
   const clips = await refreshClips();
-  const header = ['timestamp','action','text','frameUrl'];
-  const rows = clips.map(c => [new Date(c.timestamp).toISOString(), c.action, (c.text||'').replace(/"/g,'""'), c.frameUrl||'']);
-  const csv = [header.join(','), ...rows.map(r => r.map(x => '"' + (x||'') + '"').join(','))].join('');
+  const header = ['timestamp','action','text','title','url','frameUrl'];
+  const rows = clips.map(c => [
+    new Date(c.timestamp).toISOString(), 
+    c.action, 
+    (c.text||'').replace(/"/g,'""'), 
+    (c.title||'').replace(/"/g,'""'),
+    (c.url||'').replace(/"/g,'""'),
+    c.frameUrl||''
+  ]);
+  const csv = [header.join(','), ...rows.map(r => r.map(x => '"' + (x||'') + '"').join(','))].join('\n');
   downloadBlob('clips.csv', 'text/csv', csv);
+};
+
+exportExtractedDataBtn.onclick = async () => {
+  const clips = await refreshClips();
+  const extractedData = clips.filter(c => c.type === 'extract');
+  
+  if (extractedData.length === 0) {
+    showMessage('No extracted data found', 'warning');
+    return;
+  }
+  
+  // Create CSV with extracted data
+  const header = ['timestamp','action','title','url','frameUrl'];
+  const rows = extractedData.map(c => [
+    new Date(c.timestamp).toISOString(),
+    c.action,
+    (c.title||'').replace(/"/g,'""'),
+    (c.url||'').replace(/"/g,'""'),
+    c.frameUrl||''
+  ]);
+  const csv = [header.join(','), ...rows.map(r => r.map(x => '"' + (x||'') + '"').join(','))].join('\n');
+  downloadBlob('extracted-data.csv', 'text/csv', csv);
+  
+  showMessage(`Exported ${extractedData.length} extracted data items`, 'success');
 };
 
 // Accordion rendering functions
@@ -621,14 +890,89 @@ function getStepIcon(type) {
     'input': '⌨️',
     'text_selection': '📝',
     'shortcut': '⌨️',
+    'key_press': '🔑',
+    'extract_title': '📄',
+    'extract_url': '🔗',
+    'extract_metadata': '📊',
     'copy': '📋',
     'cut': '✂️',
-    'paste': '📋'
+    'paste': '📋',
+    'file_upload': '📁',
+    // New step types
+    'navigate_url': '🌐',
+    'find_by_value': '🔍',
+    'find_by_index': '🔢',
+    'loop_group': '🔄'
   };
   return icons[type] || '❓';
 }
 
 function getStepTitle(step, index) {
+  // Handle new step types first
+  if (step.type === 'navigate_url') {
+    return {
+      title: 'Navigate to URL',
+      subtitle: step.column ? `Column: ${step.column}` : (step.value || step.url || 'URL')
+    };
+  }
+  
+  if (step.type === 'find_by_value') {
+    return {
+      title: 'Find By Value',
+      subtitle: `Column: ${step.column} → ${step.action || 'click'}`
+    };
+  }
+  
+  if (step.type === 'find_by_index') {
+    return {
+      title: 'Find By Index',
+      subtitle: `${step.selector} [${step.index}] → ${step.action || 'click'}`
+    };
+  }
+  
+  if (step.type === 'file_upload') {
+    return {
+      title: 'File Upload',
+      subtitle: step.fileNames ? `${step.fileCount} file(s): ${step.fileNames}` : 'No files selected'
+    };
+  }
+  
+  if (step.type === 'key_press') {
+    return {
+      title: 'Key Press',
+      subtitle: step.key ? `Pressed: ${step.key}` : 'Unknown key'
+    };
+  }
+  
+  if (step.type === 'extract_title') {
+    return {
+      title: 'Extract Title',
+      subtitle: step.extractedData?.title ? `Title: ${step.extractedData.title}` : 'No title extracted'
+    };
+  }
+  
+  if (step.type === 'extract_url') {
+    return {
+      title: 'Extract URL',
+      subtitle: step.extractedData?.url ? `URL: ${step.extractedData.url}` : 'No URL extracted'
+    };
+  }
+  
+  if (step.type === 'extract_metadata') {
+    return {
+      title: 'Extract Metadata',
+      subtitle: step.extractedData ? `Title: ${step.extractedData.title || 'N/A'} | URL: ${step.extractedData.url || 'N/A'}` : 'No metadata extracted'
+    };
+  }
+  
+  if (step.type === 'loop_group') {
+    return {
+      title: step.action === 'start' ? 'Loop Start' : 'Loop End',
+      subtitle: step.action === 'start' ? `Group by: ${step.groupBy || step.name || 'unknown'}` : 'End of loop'
+    };
+  }
+  
+  // Handle original step types
   const titles = {
     'click': `Click Element`,
     'input': `Input Text`,
@@ -671,8 +1015,26 @@ function formatTimestamp(timestamp) {
   return new Date(timestamp).toLocaleTimeString();
 }
 
+function formatDelay(delayMs) {
+  if (delayMs === undefined || delayMs === null) return 'N/A';
+  if (delayMs === 0) return 'No delay';
+  
+  if (delayMs < 1000) {
+    return `${delayMs}ms`;
+  } else if (delayMs < 60000) {
+    const seconds = (delayMs / 1000).toFixed(1);
+    return `${seconds}s`;
+  } else {
+    const minutes = Math.floor(delayMs / 60000);
+    const seconds = ((delayMs % 60000) / 1000).toFixed(1);
+    return `${minutes}m ${seconds}s`;
+  }
+}
+
 function renderAccordion(steps) {
+  console.log('Rendering accordion with', steps?.length || 0, 'steps');
   if (!steps || steps.length === 0) {
+    console.log('No steps to render, showing empty state');
     stepsAccordion.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">📝</div>
@@ -687,6 +1049,7 @@ function renderAccordion(steps) {
     const { title, subtitle } = getStepTitle(step, index);
     const icon = getStepIcon(step.type);
     const timestamp = formatTimestamp(step.timestamp);
+    const delayText = step.delay !== undefined ? ` (${formatDelay(step.delay)})` : '';
     
     return `
       <div class="accordion-item" data-step-index="${index}">
@@ -694,7 +1057,7 @@ function renderAccordion(steps) {
           <div class="step-info">
             <div class="step-icon ${step.type}">${icon}</div>
             <div>
-              <div class="step-title">${title}</div>
+              <div class="step-title">${title}${delayText}</div>
               <div class="step-subtitle">${subtitle}</div>
             </div>
           </div>
@@ -710,6 +1073,12 @@ function renderAccordion(steps) {
               <div class="detail-label">Time:</div>
               <div class="detail-value">${timestamp}</div>
             </div>
+            ${step.delay !== undefined ? `
+            <div class="detail-row">
+              <div class="detail-label">Delay:</div>
+              <div class="detail-value">${formatDelay(step.delay)}</div>
+            </div>
+            ` : ''}
             ${step.target?.css ? `
             <div class="detail-row">
               <div class="detail-label">Selector:</div>
@@ -746,6 +1115,72 @@ function renderAccordion(steps) {
               <div class="detail-value">${step.placeholderIndex}</div>
             </div>
             ` : ''}
+            ${step.fileNames ? `
+            <div class="detail-row">
+              <div class="detail-label">Files:</div>
+              <div class="detail-value">${step.fileNames}</div>
+            </div>
+            ` : ''}
+            ${step.fileCount ? `
+            <div class="detail-row">
+              <div class="detail-label">File Count:</div>
+              <div class="detail-value">${step.fileCount}</div>
+            </div>
+            ` : ''}
+            ${step.accept ? `
+            <div class="detail-row">
+              <div class="detail-label">Accept:</div>
+              <div class="detail-value">${step.accept}</div>
+            </div>
+            ` : ''}
+            ${step.multiple !== undefined ? `
+            <div class="detail-row">
+              <div class="detail-label">Multiple:</div>
+              <div class="detail-value">${step.multiple ? 'Yes' : 'No'}</div>
+            </div>
+            ` : ''}
+            ${step.key ? `
+            <div class="detail-row">
+              <div class="detail-label">Key:</div>
+              <div class="detail-value">${step.key}</div>
+            </div>
+            ` : ''}
+            ${step.code ? `
+            <div class="detail-row">
+              <div class="detail-label">Code:</div>
+              <div class="detail-value">${step.code}</div>
+            </div>
+            ` : ''}
+            ${step.extractedData?.title ? `
+            <div class="detail-row">
+              <div class="detail-label">Extracted Title:</div>
+              <div class="detail-value">${step.extractedData.title}</div>
+            </div>
+            ` : ''}
+            ${step.extractedData?.url ? `
+            <div class="detail-row">
+              <div class="detail-label">Extracted URL:</div>
+              <div class="detail-value">${step.extractedData.url}</div>
+            </div>
+            ` : ''}
+            ${step.column ? `
+            <div class="detail-row">
+              <div class="detail-label">Dataset Column:</div>
+              <div class="detail-value">${step.column}</div>
+            </div>
+            ` : ''}
+            ${step.titleColumn ? `
+            <div class="detail-row">
+              <div class="detail-label">Title Column:</div>
+              <div class="detail-value">${step.titleColumn}</div>
+            </div>
+            ` : ''}
+            ${step.urlColumn ? `
+            <div class="detail-row">
+              <div class="detail-label">URL Column:</div>
+              <div class="detail-value">${step.urlColumn}</div>
+            </div>
+            ` : ''}
             ${step.url ? `
             <div class="detail-row">
               <div class="detail-label">URL:</div>
@@ -756,9 +1191,10 @@ function renderAccordion(steps) {
           <div class="step-actions">
             <button class="btn-small" data-action="copy" data-index="${index}">📋 Copy Data</button>
             <button class="btn-small" data-action="edit" data-index="${index}">✏️ Edit</button>
-            <button class="btn-small" data-action="highlight" data-index="${index}">🔍 Highlight</button>
+            ${step.target?.css ? `<button class="btn-small" data-action="highlight" data-index="${index}">🔍 Highlight</button>` : ''}
             <button class="btn-small" data-action="delete" data-index="${index}">🗑️ Delete</button>
           </div>
+          ${!['navigate_url', 'find_by_value', 'find_by_index', 'loop_group'].includes(step.type) && step.target ? `
           <div class="selector-selection">
             <label for="selector-${index}" class="selector-label">Choose Selector:</label>
             <select id="selector-${index}" class="selector-dropdown" data-step-index="${index}">
@@ -768,20 +1204,28 @@ function renderAccordion(steps) {
               <small class="selector-description">Select which method to use for finding this element</small>
             </div>
           </div>
+          ` : ''}
         </div>
       </div>
     `;
   }).join('');
 
+  console.log('Setting accordion HTML, length:', accordionHTML.length);
   stepsAccordion.innerHTML = sanitizeHTML(accordionHTML);
+  console.log('Accordion HTML set, children count:', stepsAccordion.children.length);
   
-  // Populate selector dropdowns
-  steps.forEach((step, index) => {
-    const dropdown = document.getElementById(`selector-${index}`);
-    if (dropdown) {
-      populateSelectorDropdown(dropdown, step, index);
-    }
-  });
+  // Update step count immediately
+  stepCountEl.textContent = `${steps.length} step${steps.length !== 1 ? 's' : ''}`;
+  
+  // Populate selector dropdowns asynchronously to avoid blocking UI
+  setTimeout(() => {
+    steps.forEach((step, index) => {
+      const dropdown = document.getElementById(`selector-${index}`);
+      if (dropdown) {
+        populateSelectorDropdown(dropdown, step, index);
+      }
+    });
+  }, 0);
 }
 
 // Accordion functionality
@@ -1025,12 +1469,29 @@ async function highlightStepElement(index) {
     
     if (index >= 0 && index < steps.length) {
       const step = steps[index];
-      const selector = step.target?.css;
+      
+      // Get the selected selector from the dropdown
+      const dropdown = document.getElementById(`selector-${index}`);
+      let selector = null;
+      
+      if (dropdown && dropdown.value) {
+        // Use the selected selector from dropdown (including custom selectors)
+        selector = dropdown.value;
+        const selectedOption = dropdown.options[dropdown.selectedIndex];
+        const isCustom = selectedOption && selectedOption.dataset.type === 'custom';
+        console.log('Using dropdown selector:', selector, isCustom ? '(CUSTOM)' : '');
+      } else {
+        // Fallback to step's original selector
+        selector = step.target?.css;
+        console.log('Using step target selector:', selector);
+      }
       
       if (!selector) {
         showMessage('No selector available for this step', 'error');
         return;
       }
+      
+      console.log('Highlighting element with selector:', selector);
       
       // Send message to highlight element
       const highlightRes = await send({ 
@@ -1039,6 +1500,8 @@ async function highlightStepElement(index) {
         selector: selector,
         stepIndex: index
       });
+      
+      console.log('Highlight response:', highlightRes);
       
       if (highlightRes?.ok) {
         showMessage(`Highlighted element for step ${index + 1}`, 'success');
@@ -1068,6 +1531,12 @@ jsonViewBtn.addEventListener('click', () => {
   jsonView.classList.remove('json-view-hidden');
   accordionView.style.display = 'none';
 });
+
+// Initialize view state - ensure accordion view is shown by default
+accordionViewBtn.classList.add('active');
+jsonViewBtn.classList.remove('active');
+accordionView.style.display = 'block';
+jsonView.classList.add('json-view-hidden');
 
 // Event delegation for accordion interactions
 stepsAccordion.addEventListener('click', (event) => {
@@ -1118,7 +1587,7 @@ stepsAccordion.addEventListener('change', (event) => {
 });
 
 // Handle selector dropdown change
-function handleSelectorChange(dropdown, stepIndex) {
+async function handleSelectorChange(dropdown, stepIndex) {
   try {
     const selectedValue = dropdown.value;
     const selectedOption = dropdown.options[dropdown.selectedIndex];
@@ -1145,10 +1614,16 @@ function handleSelectorChange(dropdown, stepIndex) {
         }
         
         dropdown.insertBefore(customOption, dropdown.lastElementChild);
+        
+        // Update the step with the new selector
+        await updateStepSelector(stepIndex, customSelector);
       } else {
         // Reset to previous selection
         dropdown.selectedIndex = 0;
       }
+    } else if (selectedValue && selectedValue !== 'custom') {
+      // Update the step with the selected selector
+      await updateStepSelector(stepIndex, selectedValue);
     }
     
     // Save selector preference
@@ -1158,6 +1633,46 @@ function handleSelectorChange(dropdown, stepIndex) {
     
   } catch (error) {
     console.error('Error handling selector change:', error);
+  }
+}
+
+// Update step selector in storage and refresh display
+async function updateStepSelector(stepIndex, newSelector) {
+  try {
+    // Get current steps
+    const res = await send({ from: 'panel', type: 'PANEL_GET_STEPS' });
+    const steps = (res && res.steps) || [];
+    
+    if (stepIndex >= 0 && stepIndex < steps.length) {
+      const step = steps[stepIndex];
+      
+      // Update the step's target CSS selector
+      const updatedStep = {
+        ...step,
+        target: {
+          ...step.target,
+          css: newSelector
+        }
+      };
+      
+      // Update the step in storage
+      const updateRes = await send({ 
+        from: 'panel', 
+        type: 'PANEL_UPDATE_STEP', 
+        index: stepIndex,
+        step: updatedStep
+      });
+      
+      if (updateRes?.ok) {
+        // Refresh the accordion to show updated selector
+        await refreshSteps();
+        console.log(`Updated step ${stepIndex} selector to:`, newSelector);
+      } else {
+        console.error('Failed to update step selector:', updateRes?.error);
+      }
+    }
+  } catch (error) {
+    console.error('Error updating step selector:', error);
   }
 }
 
@@ -1196,6 +1711,40 @@ window.editStep = editStep;
 window.highlightStepElement = highlightStepElement;
 window.deleteStep = deleteStep;
 
+// Test function for custom selectors
+window.testCustomSelector = async function(stepIndex, customSelector) {
+  try {
+    console.log(`Testing custom selector "${customSelector}" for step ${stepIndex}`);
+    
+    // Get current steps
+    const res = await send({ from: 'panel', type: 'PANEL_GET_STEPS' });
+    const steps = (res && res.steps) || [];
+    
+    if (stepIndex >= 0 && stepIndex < steps.length) {
+      // Send message to highlight element
+      const highlightRes = await send({ 
+        from: 'panel', 
+        type: 'PANEL_HIGHLIGHT_ELEMENT', 
+        selector: customSelector,
+        stepIndex: stepIndex
+      });
+      
+      console.log('Highlight response:', highlightRes);
+      
+      if (highlightRes?.ok) {
+        showMessage(`Custom selector "${customSelector}" highlighted successfully`, 'success');
+      } else {
+        showMessage('Failed to highlight with custom selector: ' + (highlightRes?.error || 'Element not found'), 'error');
+      }
+    } else {
+      showMessage('Invalid step index', 'error');
+    }
+  } catch (error) {
+    console.error('Error testing custom selector:', error);
+    showMessage('Failed to test custom selector: ' + error.message, 'error');
+  }
+};
+
 // Initialize dataset info on page load
 function initializeDatasetInfo() {
   try {
@@ -1217,6 +1766,13 @@ function sanitizeHTML(html) {
 // Generate all possible selectors for a step
 function generateSelectorsForStep(step) {
   const selectors = [];
+  
+  // Skip special step types that don't have selectable elements
+  const specialTypes = ['navigate_url', 'find_by_value', 'find_by_index', 'loop_group'];
+  if (specialTypes.includes(step.type)) {
+    return selectors; // Return empty array for special steps
+  }
+  
   const sig = step.target?.signature || {};
   
   try {
@@ -1406,6 +1962,11 @@ function generateSelectorsForStep(step) {
 // Populate selector dropdown for a step
 function populateSelectorDropdown(dropdown, step, stepIndex) {
   try {
+    // Skip if dropdown doesn't exist or step doesn't need selectors
+    if (!dropdown || !step.target) {
+      return;
+    }
+    
     const selectors = generateSelectorsForStep(step);
     
     // Clear existing options
@@ -1418,6 +1979,9 @@ function populateSelectorDropdown(dropdown, step, stepIndex) {
     
     // Load saved preference
     const savedPreference = loadSelectorPreference(stepIndex);
+    
+    // Create document fragment for better performance
+    const fragment = document.createDocumentFragment();
     
     // Add options for each selector
     selectors.forEach((selector, index) => {
@@ -1434,7 +1998,7 @@ function populateSelectorDropdown(dropdown, step, stepIndex) {
         option.selected = true;
       }
       
-      dropdown.appendChild(option);
+      fragment.appendChild(option);
     });
     
     // Add custom selector option
@@ -1443,7 +2007,10 @@ function populateSelectorDropdown(dropdown, step, stepIndex) {
     customOption.textContent = 'Custom Selector...';
     customOption.dataset.type = 'custom';
     customOption.dataset.description = 'Enter a custom CSS selector';
-    dropdown.appendChild(customOption);
+    fragment.appendChild(customOption);
+    
+    // Append all options at once
+    dropdown.appendChild(fragment);
     
     // Update description
     updateSelectorDescription(dropdown, stepIndex);
@@ -1477,582 +2044,6 @@ function updateSelectorDescription(dropdown, stepIndex) {
   }
 }
 
-// Test Flow Functions
-async function startTestFlow() {
-  try {
-    console.log('Starting test flow...');
-    
-    // Get current steps
-    const res = await send({ from: 'panel', type: 'PANEL_GET_STEPS' });
-    const steps = (res && res.steps) || [];
-    
-    if (steps.length === 0) {
-      alert('No steps recorded to test');
-      return;
-    }
-    
-    // Initialize test flow state
-    testFlowState = {
-      isActive: true,
-      currentStepIndex: 0,
-      steps: steps,
-      currentElement: null,
-      currentSelector: null,
-      skippedSteps: new Set(),
-      testResults: []
-    };
-    
-    // Show modal
-    console.log('Showing modal...');
-    testFlowModal.classList.remove('hidden-section');
-    
-    // Start first step
-    await processCurrentTestStep();
-    
-  } catch (error) {
-    console.error('Error starting test flow:', error);
-    alert('Error starting test flow: ' + error.message);
-  }
-}
-
-async function processCurrentTestStep() {
-  if (!testFlowState.isActive || testFlowState.currentStepIndex >= testFlowState.steps.length) {
-    await finishTestFlow();
-    return;
-  }
-  
-  const step = testFlowState.steps[testFlowState.currentStepIndex];
-  
-  // Update UI
-  currentStepNumber.textContent = testFlowState.currentStepIndex + 1;
-  totalSteps.textContent = testFlowState.steps.length;
-  
-  // Update step description
-  const stepTitle = getStepTitle(step, testFlowState.currentStepIndex);
-  stepDescription.textContent = `${stepTitle.title}: ${stepTitle.subtitle}`;
-  
-  // Update progress
-  const progress = ((testFlowState.currentStepIndex) / testFlowState.steps.length) * 100;
-  testProgressFill.style.width = `${progress}%`;
-  testProgressText.textContent = `${Math.round(progress)}% Complete`;
-  
-  // Try to find element
-  await findElementForStep(step);
-}
-
-async function findElementForStep(step) {
-  try {
-    highlightDetails.innerHTML = `
-      <div style="color: #f59e0b; font-weight: bold;">🔍 Looking for element...</div>
-      <div><strong>Step:</strong> ${step.type}</div>
-    `;
-    
-    // Send message to find and highlight element
-    const res = await send({ 
-      from: 'panel', 
-      type: 'PANEL_TEST_FIND_ELEMENT', 
-      stepIndex: testFlowState.currentStepIndex,
-      step: step
-    });
-    
-    if (res?.ok && res.element) {
-      testFlowState.currentElement = res.element;
-      testFlowState.currentSelector = res.selector;
-      
-      highlightDetails.innerHTML = `
-        <div style="color: #10b981; font-weight: bold;">✅ Element found!</div>
-        <div><strong>Selector:</strong> ${res.selector}</div>
-        <div><strong>Tag:</strong> ${res.element.tagName}</div>
-        <div><strong>ID:</strong> ${res.element.id || 'None'}</div>
-        <div><strong>Classes:</strong> ${res.element.className || 'None'}</div>
-        <div><strong>Text:</strong> ${res.element.textContent?.substring(0, 100) || 'None'}</div>
-      `;
-      
-      // Populate selector dropdown
-      populateTestSelectorDropdown(step);
-      
-      // Enable buttons
-      highlightElementBtn.disabled = false;
-      highlightElementBtn.textContent = '🔍 Highlight Element';
-    } else {
-      highlightDetails.innerHTML = `
-        <div style="color: #ef4444; font-weight: bold;">❌ Element not found</div>
-        <div><strong>Error:</strong> ${res?.error || 'Unknown error'}</div>
-        <div style="margin-top: 10px; font-size: 12px; color: #6b7280;">
-          Try changing the selector using the dropdown below.
-        </div>
-      `;
-      highlightElementBtn.disabled = true;
-      highlightElementBtn.textContent = '❌ Element Not Found';
-    }
-    
-  } catch (error) {
-    console.error('Error finding element:', error);
-    highlightDetails.innerHTML = `
-      <div style="color: #ef4444; font-weight: bold;">❌ Error finding element</div>
-      <div><strong>Error:</strong> ${error.message}</div>
-    `;
-    highlightElementBtn.disabled = true;
-    highlightElementBtn.textContent = '❌ Error';
-  }
-}
-
-async function highlightCurrentElement() {
-  try {
-    if (!testFlowState.currentElement) return;
-    
-    // Send message to highlight element
-    await send({ 
-      from: 'panel', 
-      type: 'PANEL_TEST_HIGHLIGHT_ELEMENT', 
-      stepIndex: testFlowState.currentStepIndex
-    });
-    
-    highlightElementBtn.textContent = '✅ Highlighted';
-    highlightElementBtn.disabled = true;
-    
-    // Re-enable after 3 seconds
-    setTimeout(() => {
-      if (testFlowState.isActive) {
-        highlightElementBtn.textContent = '🔍 Highlight Element';
-        highlightElementBtn.disabled = false;
-      }
-    }, 3000);
-    
-  } catch (error) {
-    console.error('Error highlighting element:', error);
-    alert('Error highlighting element: ' + error.message);
-  }
-}
-
-async function recheckCurrentElement() {
-  try {
-    if (!testFlowState.currentSelector) {
-      showMessage('No selector available to recheck', 'error');
-      return;
-    }
-    
-    // Show loading state
-    recheckElementBtn.disabled = true;
-    recheckElementBtn.textContent = '🔄 Rechecking...';
-    
-    // Recheck the current selector
-    await testAndUpdateSelector(testFlowState.currentSelector);
-    
-    // Re-enable button
-    recheckElementBtn.disabled = false;
-    recheckElementBtn.textContent = '🔄 Recheck Element';
-    
-  } catch (error) {
-    console.error('Error rechecking element:', error);
-    showMessage('Error rechecking element: ' + error.message, 'error');
-    
-    // Re-enable button
-    recheckElementBtn.disabled = false;
-    recheckElementBtn.textContent = '🔄 Recheck Element';
-  }
-}
-
-// Populate test selector dropdown
-function populateTestSelectorDropdown(step) {
-  try {
-    const selectors = generateSelectorsForStep(step);
-    
-    // Clear existing options
-    testSelectorDropdown.innerHTML = '';
-    
-    if (selectors.length === 0) {
-      testSelectorDropdown.innerHTML = '<option value="">No selectors available</option>';
-      return;
-    }
-    
-    // Load saved preference
-    const savedPreference = loadSelectorPreference(testFlowState.currentStepIndex);
-    
-    // Add options for each selector
-    selectors.forEach((selector, index) => {
-      const option = document.createElement('option');
-      option.value = selector.value;
-      option.textContent = selector.label;
-      option.dataset.type = selector.type;
-      option.dataset.description = selector.description;
-      
-      // Set selected based on saved preference or current selector
-      if (savedPreference === selector.value) {
-        option.selected = true;
-      } else if (testFlowState.currentSelector === selector.value) {
-        option.selected = true;
-      } else if (!savedPreference && !testFlowState.currentSelector && selector.type === 'primary') {
-        option.selected = true;
-      }
-      
-      testSelectorDropdown.appendChild(option);
-    });
-    
-    // Add custom selector option
-    const customOption = document.createElement('option');
-    customOption.value = 'custom';
-    customOption.textContent = 'Custom Selector...';
-    customOption.dataset.type = 'custom';
-    customOption.dataset.description = 'Enter a custom CSS selector';
-    testSelectorDropdown.appendChild(customOption);
-    
-    // Update description
-    updateTestSelectorDescription();
-    
-  } catch (error) {
-    console.error('Error populating test selector dropdown:', error);
-    testSelectorDropdown.innerHTML = '<option value="">Error loading selectors</option>';
-  }
-}
-
-// Update test selector description
-function updateTestSelectorDescription() {
-  const selectedOption = testSelectorDropdown.options[testSelectorDropdown.selectedIndex];
-  const descriptionEl = testSelectorDropdown.parentNode.querySelector('.selector-description');
-  
-  if (descriptionEl && selectedOption) {
-    descriptionEl.textContent = selectedOption.dataset.description || 'Select a method for finding this element';
-    
-    // Update status indicator
-    const statusEl = descriptionEl.parentNode.querySelector('.selector-status');
-    if (statusEl) {
-      statusEl.remove();
-    }
-    
-    if (selectedOption.dataset.type) {
-      const status = document.createElement('span');
-      status.className = `selector-status ${selectedOption.dataset.type}`;
-      status.textContent = selectedOption.dataset.type.toUpperCase();
-      descriptionEl.parentNode.appendChild(status);
-    }
-  }
-}
-
-async function changeCurrentSelector() {
-  try {
-    // Show custom selector dialog
-    const customSelector = prompt('Enter custom CSS selector:', testFlowState.currentSelector || '');
-    if (customSelector) {
-      await testAndUpdateSelector(customSelector);
-    }
-    
-  } catch (error) {
-    console.error('Error changing selector:', error);
-    alert('Error changing selector: ' + error.message);
-  }
-}
-
-async function testAndUpdateSelector(selector) {
-  try {
-    // Show loading state
-    highlightDetails.innerHTML = `
-      <div style="color: #f59e0b; font-weight: bold;">🔍 Testing selector...</div>
-      <div><strong>Selector:</strong> ${selector}</div>
-    `;
-    
-    // Test the new selector
-    const res = await send({ 
-      from: 'panel', 
-      type: 'PANEL_TEST_SELECTOR', 
-      selector: selector,
-      stepIndex: testFlowState.currentStepIndex
-    });
-    
-    if (res?.ok && res.element) {
-      testFlowState.currentSelector = selector;
-      testFlowState.currentElement = res.element;
-      
-      highlightDetails.innerHTML = `
-        <div style="color: #10b981; font-weight: bold;">✅ Element found!</div>
-        <div><strong>Selector:</strong> ${selector}</div>
-        <div><strong>Tag:</strong> ${res.element.tagName}</div>
-        <div><strong>ID:</strong> ${res.element.id || 'None'}</div>
-        <div><strong>Classes:</strong> ${res.element.className || 'None'}</div>
-        <div><strong>Text:</strong> ${res.element.textContent?.substring(0, 100) || 'None'}</div>
-      `;
-      
-      // Enable highlight button
-      highlightElementBtn.disabled = false;
-      highlightElementBtn.textContent = '🔍 Highlight Element';
-      
-      // Save selector preference
-      saveSelectorPreference(testFlowState.currentStepIndex, selector);
-      
-      // Update the step in storage with new selector
-      const step = testFlowState.steps[testFlowState.currentStepIndex];
-      if (step) {
-        const updatedStep = {
-          ...step,
-          target: {
-            ...step.target,
-            css: selector
-          }
-        };
-        
-        // Update step in storage
-        await send({ 
-          from: 'panel', 
-          type: 'PANEL_UPDATE_STEP', 
-          index: testFlowState.currentStepIndex,
-          step: updatedStep
-        });
-        
-        // Update the step in test flow state
-        testFlowState.steps[testFlowState.currentStepIndex] = updatedStep;
-        
-        // Refresh the accordion to show updated selector
-        await refreshSteps();
-      }
-      
-      // Update dropdown selection
-      const option = Array.from(testSelectorDropdown.options).find(opt => opt.value === selector);
-      if (option) {
-        testSelectorDropdown.selectedIndex = option.index;
-        updateTestSelectorDescription();
-      }
-      
-      console.log('Selector updated successfully:', selector);
-    } else {
-      // Element not found - show error state
-      highlightDetails.innerHTML = `
-        <div style="color: #ef4444; font-weight: bold;">❌ Element not found</div>
-        <div><strong>Selector:</strong> ${selector}</div>
-        <div><strong>Error:</strong> ${res?.error || 'Element not found on page'}</div>
-        <div style="margin-top: 10px; font-size: 12px; color: #6b7280;">
-          Try a different selector or check if the element exists on the current page.
-        </div>
-      `;
-      
-      // Disable highlight button
-      highlightElementBtn.disabled = true;
-      highlightElementBtn.textContent = '❌ Element Not Found';
-      
-      // Show error message
-      showMessage(`Element not found: ${res?.error || 'Invalid selector'}`, 'error');
-    }
-    
-  } catch (error) {
-    console.error('Error testing selector:', error);
-    
-    // Show error state
-    highlightDetails.innerHTML = `
-      <div style="color: #ef4444; font-weight: bold;">❌ Error testing selector</div>
-      <div><strong>Selector:</strong> ${selector}</div>
-      <div><strong>Error:</strong> ${error.message}</div>
-    `;
-    
-    // Disable highlight button
-    highlightElementBtn.disabled = true;
-    highlightElementBtn.textContent = '❌ Error';
-    
-    showMessage('Error testing selector: ' + error.message, 'error');
-  }
-}
-
-// Handle test selector dropdown change
-async function handleTestSelectorChange(event) {
-  try {
-    const selectedValue = event.target.value;
-    
-    if (!selectedValue) {
-      updateTestSelectorDescription();
-      return;
-    }
-    
-    if (selectedValue === 'custom') {
-      // Handle custom selector - show prompt and validate
-      const customSelector = prompt('Enter custom CSS selector:', testFlowState.currentSelector || '');
-      if (customSelector) {
-        await testAndUpdateSelector(customSelector);
-      } else {
-        // Reset to previous selection if cancelled
-        const previousSelector = testFlowState.currentSelector;
-        if (previousSelector) {
-          const option = Array.from(testSelectorDropdown.options).find(opt => opt.value === previousSelector);
-          if (option) {
-            testSelectorDropdown.selectedIndex = option.index;
-          }
-        }
-        updateTestSelectorDescription();
-      }
-      return;
-    }
-    
-    // Automatically test and update the selector
-    await testAndUpdateSelector(selectedValue);
-    
-  } catch (error) {
-    console.error('Error handling test selector change:', error);
-  }
-}
-
-async function confirmCurrentStep() {
-  try {
-    // First execute the step interaction
-    await executeCurrentStep();
-    
-    // Record test result
-    testFlowState.testResults.push({
-      stepIndex: testFlowState.currentStepIndex,
-      step: testFlowState.steps[testFlowState.currentStepIndex],
-      status: 'confirmed',
-      selector: testFlowState.currentSelector,
-      timestamp: Date.now()
-    });
-    
-    // Refresh the accordion to show any changes
-    await refreshSteps();
-    
-    // Move to next step
-    testFlowState.currentStepIndex++;
-    await processCurrentTestStep();
-    
-  } catch (error) {
-    console.error('Error confirming step:', error);
-    alert('Error confirming step: ' + error.message);
-  }
-}
-
-async function executeCurrentStep() {
-  try {
-    if (!testFlowState.currentElement || !testFlowState.currentSelector) {
-      throw new Error('No element or selector available for execution');
-    }
-    
-    const step = testFlowState.steps[testFlowState.currentStepIndex];
-    
-    // Update UI to show execution
-    highlightDetails.textContent = 'Executing step interaction...';
-    
-    // Send message to execute the step
-    const res = await send({ 
-      from: 'panel', 
-      type: 'PANEL_TEST_EXECUTE_STEP', 
-      stepIndex: testFlowState.currentStepIndex,
-      step: step,
-      selector: testFlowState.currentSelector
-    });
-    
-    if (res?.ok) {
-      highlightDetails.innerHTML = `
-        <div style="color: #10b981; font-weight: bold;">✅ Step executed successfully!</div>
-        <div><strong>Action:</strong> ${res.stepType}</div>
-        <div><strong>Result:</strong> ${res.result}</div>
-        <div><strong>Selector:</strong> ${res.selector}</div>
-      `;
-      console.log('Step executed:', step.type, res.result);
-    } else {
-      throw new Error(res?.error || 'Step execution failed');
-    }
-    
-  } catch (error) {
-    console.error('Error executing step:', error);
-    highlightDetails.innerHTML = `
-      <div style="color: #ef4444; font-weight: bold;">❌ Execution failed</div>
-      <div><strong>Error:</strong> ${error.message}</div>
-    `;
-    throw error;
-  }
-}
-
-async function skipCurrentStep() {
-  try {
-    const currentIndex = testFlowState.currentStepIndex;
-    const step = testFlowState.steps[currentIndex];
-    
-    // Record test result
-    testFlowState.testResults.push({
-      stepIndex: currentIndex,
-      step: step,
-      status: 'skipped',
-      selector: testFlowState.currentSelector,
-      timestamp: Date.now()
-    });
-    
-    // Delete the step from storage
-    await send({ 
-      from: 'panel', 
-      type: 'PANEL_DELETE_STEP', 
-      index: currentIndex
-    });
-    
-    // Remove the step from test flow state
-    testFlowState.steps.splice(currentIndex, 1);
-    testFlowState.skippedSteps.add(currentIndex);
-    
-    // Update total steps count
-    totalSteps.textContent = testFlowState.steps.length;
-    
-    // Refresh the accordion to show the deleted step
-    await refreshSteps();
-    
-    // If we're at the end or beyond, finish the test
-    if (currentIndex >= testFlowState.steps.length) {
-      await finishTestFlow();
-      return;
-    }
-    
-    // Don't increment currentStepIndex since we removed a step
-    // The next step is now at the same index
-    await processCurrentTestStep();
-    
-  } catch (error) {
-    console.error('Error skipping step:', error);
-    alert('Error skipping step: ' + error.message);
-  }
-}
-
-async function stopTestFlow() {
-  try {
-    console.log('Stopping test flow...');
-    testFlowState.isActive = false;
-    
-    // Hide modal
-    console.log('Hiding modal...');
-    testFlowModal.classList.add('hidden-section');
-    
-    // Show results
-    const confirmed = testFlowState.testResults.filter(r => r.status === 'confirmed').length;
-    const skipped = testFlowState.testResults.filter(r => r.status === 'skipped').length;
-    const total = testFlowState.steps.length;
-    
-    alert(`Test Flow Completed!\n\nConfirmed: ${confirmed}/${total}\nSkipped: ${skipped}/${total}\n\nCheck the console for detailed results.`);
-    
-    console.log('Test Flow Results:', testFlowState.testResults);
-    
-  } catch (error) {
-    console.error('Error stopping test flow:', error);
-  }
-}
-
-async function finishTestFlow() {
-  await stopTestFlow();
-}
-
-// Test Flow Event Listeners
-testFlowBtn.addEventListener('click', startTestFlow);
-closeTestFlowBtn.addEventListener('click', stopTestFlow);
-highlightElementBtn.addEventListener('click', highlightCurrentElement);
-recheckElementBtn.addEventListener('click', recheckCurrentElement);
-changeSelectorBtn.addEventListener('click', changeCurrentSelector);
-testSelectorDropdown.addEventListener('change', handleTestSelectorChange);
-confirmElementBtn.addEventListener('click', confirmCurrentStep);
-skipStepBtn.addEventListener('click', skipCurrentStep);
-stopTestBtn.addEventListener('click', stopTestFlow);
-
-// Close modal when clicking outside
-testFlowModal.addEventListener('click', (event) => {
-  if (event.target === testFlowModal) {
-    stopTestFlow();
-  }
-});
-
-// Prevent modal content clicks from closing modal
-document.querySelector('.test-flow-content').addEventListener('click', (event) => {
-  event.stopPropagation();
-});
-
 // ============ INSERT STEP MODAL FUNCTIONALITY ============
 
 const insertStepModal = document.getElementById('insertStepModal');
@@ -2074,8 +2065,344 @@ const findByIndexNumber = document.getElementById('findByIndexNumber');
 const findByIndexAction = document.getElementById('findByIndexAction');
 const loopGroupColumn = document.getElementById('loopGroupColumn');
 const loopGroupName = document.getElementById('loopGroupName');
+const fileUploadSelector = document.getElementById('fileUploadSelector');
+const fileUploadAccept = document.getElementById('fileUploadAccept');
+const fileUploadMultiple = document.getElementById('fileUploadMultiple');
+const keyPressSelector = document.getElementById('keyPressSelector');
+const keyPressKey = document.getElementById('keyPressKey');
+const errorReportBtn = document.getElementById('errorReportBtn');
+
+// Extraction form elements
+const extractTitleColumn = document.getElementById('extractTitleColumn');
+const extractUrlColumn = document.getElementById('extractUrlColumn');
+const extractMetadataTitleColumn = document.getElementById('extractMetadataTitleColumn');
+const extractMetadataUrlColumn = document.getElementById('extractMetadataUrlColumn');
+
+// Error dialog elements
+const errorDialogModal = document.getElementById('errorDialogModal');
+const closeErrorDialogBtn = document.getElementById('closeErrorDialogBtn');
+const retryStepBtn = document.getElementById('retryStepBtn');
+const skipStepBtn = document.getElementById('skipStepBtn');
+const stopPlaybackBtn = document.getElementById('stopPlaybackBtn');
+const skipAllSimilarErrors = document.getElementById('skipAllSimilarErrors');
+const showErrorDetails = document.getElementById('showErrorDetails');
+const errorTechnicalDetails = document.getElementById('errorTechnicalDetails');
+
+// Error handling state
+let currentErrorStep = null;
+let currentErrorIndex = -1;
+let errorHandlingResolve = null;
+let skipSimilarErrors = new Set();
+let errorLog = [];
+let errorStats = {
+  totalErrors: 0,
+  skippedErrors: 0,
+  retriedErrors: 0,
+  stoppedErrors: 0,
+  errorTypes: {}
+};
 
 let selectedStepType = null;
+
+// Error Dialog Event Handlers
+closeErrorDialogBtn.addEventListener('click', () => {
+  errorDialogModal.classList.add('hidden-section');
+  if (errorHandlingResolve) {
+    errorHandlingResolve({ action: 'close' });
+    errorHandlingResolve = null;
+  }
+});
+
+retryStepBtn.addEventListener('click', () => {
+  errorDialogModal.classList.add('hidden-section');
+  if (errorHandlingResolve) {
+    errorHandlingResolve({ action: 'retry' });
+    errorHandlingResolve = null;
+  }
+});
+
+skipStepBtn.addEventListener('click', () => {
+  errorDialogModal.classList.add('hidden-section');
+  if (errorHandlingResolve) {
+    errorHandlingResolve({ action: 'skip' });
+    errorHandlingResolve = null;
+  }
+});
+
+stopPlaybackBtn.addEventListener('click', () => {
+  errorDialogModal.classList.add('hidden-section');
+  if (errorHandlingResolve) {
+    errorHandlingResolve({ action: 'stop' });
+    errorHandlingResolve = null;
+  }
+});
+
+showErrorDetails.addEventListener('change', () => {
+  if (showErrorDetails.checked) {
+    errorTechnicalDetails.classList.remove('hidden-section');
+  } else {
+    errorTechnicalDetails.classList.add('hidden-section');
+  }
+});
+
+// Error handling functions
+function showErrorDialog(step, stepIndex, error, context = {}) {
+  return new Promise((resolve) => {
+    errorHandlingResolve = resolve;
+    currentErrorStep = step;
+    currentErrorIndex = stepIndex;
+    
+    // Update dialog content
+    document.getElementById('errorStepNumber').textContent = stepIndex + 1;
+    document.getElementById('errorStepType').textContent = getStepTypeName(step.type);
+    
+    // Format step details
+    let stepDetails = `Type: ${step.type}`;
+    if (step.target?.css) {
+      stepDetails += `\nSelector: ${step.target.css}`;
+    }
+    if (step.originalTextSample) {
+      stepDetails += `\nText: ${step.originalTextSample.substring(0, 100)}`;
+    }
+    if (step.url) {
+      stepDetails += `\nURL: ${step.url}`;
+    }
+    document.getElementById('errorStepDetails').textContent = stepDetails;
+    
+    // Update error message
+    document.getElementById('errorMessage').textContent = error.message || error;
+    
+    // Update context
+    let contextText = '';
+    if (context.url) contextText += `Current URL: ${context.url}\n`;
+    if (context.timestamp) contextText += `Time: ${new Date(context.timestamp).toLocaleString()}\n`;
+    if (context.userAgent) contextText += `Browser: ${context.userAgent.substring(0, 100)}...\n`;
+    if (context.stepCount) contextText += `Total Steps: ${context.stepCount}\n`;
+    if (context.currentRow) contextText += `Current Row: ${context.currentRow + 1}\n`;
+    
+    document.getElementById('errorContext').textContent = contextText || 'No additional context available';
+    
+    // Update technical details
+    const stackTrace = error.stack || error.toString();
+    document.getElementById('errorStackTrace').textContent = stackTrace;
+    
+    // Reset checkboxes
+    skipAllSimilarErrors.checked = false;
+    showErrorDetails.checked = false;
+    errorTechnicalDetails.classList.add('hidden-section');
+    
+    // Show dialog
+    errorDialogModal.classList.remove('hidden-section');
+  });
+}
+
+function logError(step, stepIndex, error, context, action) {
+  const errorEntry = {
+    timestamp: Date.now(),
+    step: step,
+    stepIndex: stepIndex,
+    error: error,
+    context: context,
+    action: action
+  };
+  
+  errorLog.push(errorEntry);
+  errorStats.totalErrors++;
+  
+  // Track error types
+  const errorType = `${step.type}_${error.name || 'Error'}`;
+  errorStats.errorTypes[errorType] = (errorStats.errorTypes[errorType] || 0) + 1;
+  
+  // Track action types
+  if (action === 'skip') errorStats.skippedErrors++;
+  else if (action === 'retry') errorStats.retriedErrors++;
+  else if (action === 'stop') errorStats.stoppedErrors++;
+  
+  console.log('Error logged:', errorEntry);
+}
+
+function getErrorReport() {
+  return {
+    stats: errorStats,
+    recentErrors: errorLog.slice(-10), // Last 10 errors
+    skipList: Array.from(skipSimilarErrors)
+  };
+}
+
+function clearErrorLog() {
+  errorLog = [];
+  errorStats = {
+    totalErrors: 0,
+    skippedErrors: 0,
+    retriedErrors: 0,
+    stoppedErrors: 0,
+    errorTypes: {}
+  };
+  skipSimilarErrors.clear();
+  console.log('Error log cleared');
+}
+
+function showErrorReport() {
+  const report = getErrorReport();
+  
+  // Create error report dialog
+  const dialog = document.createElement('div');
+  dialog.className = 'error-report-modal';
+  dialog.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  `;
+  
+  content.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
+      <h3 style="margin: 0; color: #1f2937;">⚠️ Error Report</h3>
+      <button id="closeErrorReportBtn" style="background: none; border: none; font-size: 20px; cursor: pointer;">✕</button>
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+      <h4 style="color: #374151; margin-bottom: 10px;">📊 Statistics</h4>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 15px;">
+        <div style="background: #f3f4f6; padding: 10px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 24px; font-weight: bold; color: #dc2626;">${report.stats.totalErrors}</div>
+          <div style="font-size: 12px; color: #6b7280;">Total Errors</div>
+        </div>
+        <div style="background: #fef3c7; padding: 10px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 24px; font-weight: bold; color: #d97706;">${report.stats.skippedErrors}</div>
+          <div style="font-size: 12px; color: #6b7280;">Skipped</div>
+        </div>
+        <div style="background: #d1fae5; padding: 10px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 24px; font-weight: bold; color: #059669;">${report.stats.retriedErrors}</div>
+          <div style="font-size: 12px; color: #6b7280;">Retried</div>
+        </div>
+        <div style="background: #fee2e2; padding: 10px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 24px; font-weight: bold; color: #dc2626;">${report.stats.stoppedErrors}</div>
+          <div style="font-size: 12px; color: #6b7280;">Stopped</div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+      <h4 style="color: #374151; margin-bottom: 10px;">🔍 Error Types</h4>
+      <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px;">
+        ${Object.entries(report.stats.errorTypes).map(([type, count]) => 
+          `<div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #e5e7eb;">
+            <span style="font-family: monospace; font-size: 13px;">${type}</span>
+            <span style="font-weight: bold; color: #dc2626;">${count}</span>
+          </div>`
+        ).join('') || '<div style="color: #6b7280; font-style: italic;">No errors recorded</div>'}
+      </div>
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+      <h4 style="color: #374151; margin-bottom: 10px;">📝 Recent Errors</h4>
+      <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px; max-height: 200px; overflow-y: auto;">
+        ${report.recentErrors.map(error => `
+          <div style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+            <div style="font-weight: bold; color: #374151;">Step ${error.stepIndex + 1}: ${error.step.type}</div>
+            <div style="font-size: 12px; color: #6b7280; margin: 2px 0;">${error.error.message}</div>
+            <div style="font-size: 11px; color: #9ca3af;">${new Date(error.timestamp).toLocaleString()} - ${error.action}</div>
+          </div>
+        `).join('') || '<div style="color: #6b7280; font-style: italic;">No recent errors</div>'}
+      </div>
+    </div>
+    
+    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      <button id="clearErrorLogBtn" style="background: #6b7280; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Clear Log</button>
+      <button id="exportErrorReportBtn" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Export Report</button>
+      <button id="closeErrorReportBtn2" style="background: #374151; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Close</button>
+    </div>
+  `;
+  
+  dialog.appendChild(content);
+  document.body.appendChild(dialog);
+  
+  // Event handlers
+  const closeBtn = document.getElementById('closeErrorReportBtn');
+  const closeBtn2 = document.getElementById('closeErrorReportBtn2');
+  const clearBtn = document.getElementById('clearErrorLogBtn');
+  const exportBtn = document.getElementById('exportErrorReportBtn');
+  
+  const closeDialog = () => {
+    document.body.removeChild(dialog);
+  };
+  
+  closeBtn.onclick = closeDialog;
+  closeBtn2.onclick = closeDialog;
+  
+  clearBtn.onclick = () => {
+    if (confirm('Are you sure you want to clear the error log?')) {
+      clearErrorLog();
+      closeDialog();
+      showMessage('Error log cleared', 'success');
+    }
+  };
+  
+  exportBtn.onclick = () => {
+    const reportData = {
+      timestamp: new Date().toISOString(),
+      ...report
+    };
+    
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `error-report-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    showMessage('Error report exported', 'success');
+  };
+}
+
+function handleStepError(step, stepIndex, error, context = {}) {
+  // Check if we should skip similar errors
+  const errorKey = `${step.type}_${error.message}`;
+  if (skipSimilarErrors.has(errorKey)) {
+    console.log(`Skipping similar error: ${errorKey}`);
+    logError(step, stepIndex, error, context, 'skip');
+    return Promise.resolve({ action: 'skip' });
+  }
+  
+  // Show error dialog
+  return showErrorDialog(step, stepIndex, error, context).then(result => {
+    // Log the error and action
+    logError(step, stepIndex, error, context, result.action);
+    
+    // Handle "skip all similar errors" option
+    if (result.action === 'skip' && skipAllSimilarErrors.checked) {
+      skipSimilarErrors.add(errorKey);
+      console.log(`Added to skip list: ${errorKey}`);
+    }
+    
+    return result;
+  });
+}
+
+// Error Report Button
+errorReportBtn.addEventListener('click', () => {
+  showErrorReport();
+});
 
 // Open Insert Step Modal
 insertStepBtn.addEventListener('click', () => {
@@ -2175,25 +2502,40 @@ stepTypeOptions.forEach(option => {
     
     // Hide all forms
     document.querySelectorAll('.step-config-form').forEach(form => {
-      form.style.display = 'none';
+      form.classList.add('hidden-form');
     });
     
     // Show appropriate form
     switch (selectedStepType) {
       case 'navigate_url':
-        document.getElementById('navigateUrlForm').style.display = 'block';
+        document.getElementById('navigateUrlForm').classList.remove('hidden-form');
         break;
       case 'find_by_value':
-        document.getElementById('findByValueForm').style.display = 'block';
+        document.getElementById('findByValueForm').classList.remove('hidden-form');
         break;
       case 'find_by_index':
-        document.getElementById('findByIndexForm').style.display = 'block';
+        document.getElementById('findByIndexForm').classList.remove('hidden-form');
         break;
       case 'loop_group_start':
-        document.getElementById('loopGroupStartForm').style.display = 'block';
+        document.getElementById('loopGroupStartForm').classList.remove('hidden-form');
         break;
       case 'loop_group_end':
-        document.getElementById('loopGroupEndForm').style.display = 'block';
+        document.getElementById('loopGroupEndForm').classList.remove('hidden-form');
+        break;
+      case 'file_upload':
+        document.getElementById('fileUploadForm').classList.remove('hidden-form');
+        break;
+      case 'key_press':
+        document.getElementById('keyPressForm').classList.remove('hidden-form');
+        break;
+      case 'extract_title':
+        document.getElementById('extractTitleForm').classList.remove('hidden-form');
+        break;
+      case 'extract_url':
+        document.getElementById('extractUrlForm').classList.remove('hidden-form');
+        break;
+      case 'extract_metadata':
+        document.getElementById('extractMetadataForm').classList.remove('hidden-form');
         break;
     }
     
@@ -2318,9 +2660,104 @@ function buildStepFromForm(stepType) {
       };
     }
     
+    case 'file_upload': {
+      const selector = fileUploadSelector.value;
+      if (!selector) return null;
+      
+      return {
+        ...baseStep,
+        type: 'file_upload',
+        target: { css: selector, signature: {} },
+        accept: fileUploadAccept.value || '',
+        multiple: fileUploadMultiple.checked
+      };
+    }
+    
+    case 'key_press': {
+      const selector = keyPressSelector.value;
+      const key = keyPressKey.value;
+      if (!selector || !key) return null;
+      
+      return {
+        ...baseStep,
+        type: 'key_press',
+        target: { css: selector, signature: {} },
+        key: key,
+        code: getKeyCode(key)
+      };
+    }
+    
+    case 'extract_title': {
+      const column = extractTitleColumn.value;
+      
+      return {
+        ...baseStep,
+        type: 'extract_title',
+        target: { css: 'body', signature: {} },
+        column: column || null
+      };
+    }
+    
+    case 'extract_url': {
+      const column = extractUrlColumn.value;
+      
+      return {
+        ...baseStep,
+        type: 'extract_url',
+        target: { css: 'body', signature: {} },
+        column: column || null
+      };
+    }
+    
+    case 'extract_metadata': {
+      const titleColumn = extractMetadataTitleColumn.value;
+      const urlColumn = extractMetadataUrlColumn.value;
+      
+      return {
+        ...baseStep,
+        type: 'extract_metadata',
+        target: { css: 'body', signature: {} },
+        titleColumn: titleColumn || null,
+        urlColumn: urlColumn || null
+      };
+    }
+    
     default:
       return null;
   }
+}
+
+// Helper function to get key code for keyboard events
+function getKeyCode(key) {
+  const keyCodes = {
+    'Tab': 9,
+    'Enter': 13,
+    'Escape': 27,
+    'ArrowUp': 38,
+    'ArrowDown': 40,
+    'ArrowLeft': 37,
+    'ArrowRight': 39,
+    'Home': 36,
+    'End': 35,
+    'PageUp': 33,
+    'PageDown': 34,
+    'Backspace': 8,
+    'Delete': 46,
+    'Insert': 45,
+    'F1': 112,
+    'F2': 113,
+    'F3': 114,
+    'F4': 115,
+    'F5': 116,
+    'F6': 117,
+    'F7': 118,
+    'F8': 119,
+    'F9': 120,
+    'F10': 121,
+    'F11': 122,
+    'F12': 123
+  };
+  return keyCodes[key] || 0;
 }
 
 // Get friendly step type name
@@ -2330,46 +2767,14 @@ function getStepTypeName(stepType) {
     'find_by_value': 'Find By Value',
     'find_by_index': 'Find By Index',
     'loop_group_start': 'Loop Start',
-    'loop_group_end': 'Loop End'
+    'loop_group_end': 'Loop End',
+    'file_upload': 'File Upload',
+    'key_press': 'Key Press',
+    'extract_title': 'Extract Title',
+    'extract_url': 'Extract URL',
+    'extract_metadata': 'Extract Metadata'
   };
   return names[stepType] || stepType;
-}
-
-// Update getStepIcon to include new types
-const originalGetStepIcon = getStepIcon;
-function getStepIcon(type) {
-  const newIcons = {
-    'navigate_url': '🌐',
-    'find_by_value': '🔍',
-    'find_by_index': '🔢',
-    'loop_group': '🔄'
-  };
-  return newIcons[type] || originalGetStepIcon(type);
-}
-
-// Update getStepTitle to include new types
-const originalGetStepTitle = getStepTitle;
-function getStepTitle(step, index) {
-  const newTitles = {
-    'navigate_url': {
-      title: 'Navigate to URL',
-      subtitle: step.column ? `Column: ${step.column}` : (step.value || step.url || 'URL')
-    },
-    'find_by_value': {
-      title: 'Find By Value',
-      subtitle: `Column: ${step.column} → ${step.action || 'click'}`
-    },
-    'find_by_index': {
-      title: 'Find By Index',
-      subtitle: `${step.selector} [${step.index}] → ${step.action || 'click'}`
-    },
-    'loop_group': {
-      title: step.action === 'start' ? 'Loop Start' : 'Loop End',
-      subtitle: step.action === 'start' ? `Group by: ${step.groupBy || step.name || 'unknown'}` : 'End of loop'
-    }
-  };
-  
-  return newTitles[step.type] || originalGetStepTitle(step, index);
 }
 
 // ============ DATA GROUPING & PREVIEW ============
@@ -2413,89 +2818,367 @@ async function analyzeDataGrouping() {
   }
 }
 
-// Update playback to use grouped execution if needed
-const originalPlayBtnHandler = playBtn.onclick;
-playBtn.onclick = async () => {
-  let rows = [];
-  try {
-    rows = JSON.parse(jsonInput.value || '[]');
-    if (!Array.isArray(rows)) throw new Error('JSON must be an array');
-  } catch(err) { alert('Invalid JSON: ' + err.message); return; }
-  
-  const interactive = !!manualLoopEl?.checked;
-  const skipFirst = !!skipFirstRowEl?.checked;
-  const loopCount = Math.max(0, parseInt(loopCountEl.value || '0', 10) || 0);
+// Old playBtn code removed - functionality moved to stopPlayBtn
 
-  let playRows = rows;
-  if (rows.length > 0) playRows = skipFirst ? rows.slice(1) : rows;
-  else if (loopCount > 0) playRows = Array.from({length: loopCount}, () => ({}));
-  else { alert('Provide a dataset or a loop count > 0'); return; }
-
-  playBtn.disabled = true;
-  loopControls.style.display = interactive ? 'flex' : 'none';
-  nextBtn.disabled = true; stopPlayBtn.disabled = false;
+// Collapsible sections functionality
+function initializeCollapsibleSections() {
+  const sectionHeaders = document.querySelectorAll('.section-header');
   
-  try {
-    // Get start URL
-    let startUrl = null;
-    try {
-      const urlRes = await send({ from: 'panel', type: 'PANEL_GET_START_URL' });
-      startUrl = urlRes?.startUrl;
-    } catch (error) {
-      console.warn('Could not get start URL:', error);
-    }
-    
-    // Get steps
-    const stepsRes = await send({ from: 'panel', type: 'PANEL_GET_STEPS' });
-    const steps = (stepsRes && stepsRes.steps) || [];
-    
-    // Check if we need grouped execution
-    const hasLoopGroups = steps.some(s => s.type === 'loop_group');
-    
-    if (hasLoopGroups) {
-      // Use grouped execution
-      console.log('Using grouped execution');
-      const groupingAnalysis = await analyzeDataGrouping();
+  sectionHeaders.forEach(header => {
+    header.addEventListener('click', () => {
+      const section = header.closest('.section');
+      const content = section.querySelector('.section-content');
+      const toggle = header.querySelector('.section-toggle');
       
-      if (groupingAnalysis.hasGroups) {
-        console.log('Grouping preview:', groupingAnalysis.preview);
+      if (content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        toggle.classList.remove('collapsed');
+      } else {
+        content.classList.add('collapsed');
+        toggle.classList.add('collapsed');
       }
-      
-      const res = await send({ 
-        from:'panel', 
-        type:'PANEL_PLAY_ALL_GROUPED', 
-        rows: playRows, 
-        interactive,
-        startUrl,
-        groupingInfo: groupingAnalysis.hierarchy
-      });
-      
-      if (!res?.ok) throw new Error(res?.error || 'Playback failed');
-      alert(`Grouped playback completed.\n\n${groupingAnalysis.preview}`);
-    } else {
-      // Use normal execution
-      const res = await send({ 
-        from:'panel', 
-        type:'PANEL_PLAY_ALL', 
-        rows: playRows, 
-        interactive,
-        startUrl 
-      });
-      if (!res?.ok) throw new Error(res?.error || 'Playback failed');
-      alert(`Played ${playRows.length} item(s).`);
+    });
+  });
+}
+
+// Initialize button states
+function initializeButtonStates() {
+  // Set initial button states
+  stopPlayBtn.textContent = 'Play All';
+  stopPlayBtn.disabled = false;
+  pauseResumeBtn.disabled = true;
+  pauseResumeBtn.textContent = 'Pause';
+  startBtn.disabled = false;
+  
+  // Reset state variables
+  isRecording = false;
+  isPaused = false;
+  isPlaying = false;
+}
+
+// ============ PRELOADED FLOWS FUNCTIONALITY ============
+
+// Preloaded Flows UI Elements
+const preloadedFlowsList = document.getElementById('preloadedFlowsList');
+const preloadedFlowActions = document.getElementById('preloadedFlowActions');
+const preloadedFlowInfo = document.getElementById('preloadedFlowInfo');
+const loadPreloadedFlowBtn = document.getElementById('loadPreloadedFlowBtn');
+const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
+const importPreloadedCsvBtn = document.getElementById('importPreloadedCsvBtn');
+const preloadedCsvFileInput = document.getElementById('preloadedCsvFileInput');
+
+let selectedPreloadedFlow = null;
+
+// Initialize preloaded flows
+async function initializePreloadedFlows() {
+  try {
+    // Load preloaded flows data
+    if (typeof PRELOADED_FLOWS === 'undefined') {
+      console.error('PRELOADED_FLOWS not loaded');
+      return;
     }
-  } catch(err){ 
-    alert(String(err.message || err)); 
-  } finally { 
-    playBtn.disabled = false; 
-    loopControls.style.display = 'none'; 
+
+    renderPreloadedFlowsList();
+    bindPreloadedFlowEvents();
+  } catch (error) {
+    console.error('Error initializing preloaded flows:', error);
+    showMessage('Failed to load preloaded flows', 'error');
   }
-};
+}
+
+// Render the list of preloaded flows
+function renderPreloadedFlowsList() {
+  if (!preloadedFlowsList || typeof PRELOADED_FLOWS === 'undefined') return;
+
+  const flows = Object.values(PRELOADED_FLOWS);
+  
+  preloadedFlowsList.innerHTML = flows.map(flow => `
+    <div class="preloaded-flow-card" data-flow-id="${flow.id}">
+      <div class="preloaded-flow-header">
+        <h4 class="preloaded-flow-title">${flow.name}</h4>
+        <span class="preloaded-flow-badge">${flow.category}</span>
+      </div>
+      <p class="preloaded-flow-description">${flow.description}</p>
+      <div class="preloaded-flow-meta">
+        <span>📊 ${flow.steps.length} steps</span>
+        <span>📁 CSV template included</span>
+        <span>v${flow.version}</span>
+      </div>
+      <div class="preloaded-flow-steps">
+        ${flow.steps.slice(0, 3).map(step => `
+          <div class="preloaded-flow-step">
+            <div class="preloaded-flow-step-icon ${step.type}">${getStepIcon(step.type)}</div>
+            <span>${getStepTitle(step, 0).title}</span>
+          </div>
+        `).join('')}
+        ${flow.steps.length > 3 ? `<div class="preloaded-flow-step"><span>... and ${flow.steps.length - 3} more steps</span></div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// Bind event handlers for preloaded flows
+function bindPreloadedFlowEvents() {
+  // Flow card selection
+  preloadedFlowsList.addEventListener('click', (e) => {
+    const card = e.target.closest('.preloaded-flow-card');
+    if (!card) return;
+
+    const flowId = card.dataset.flowId;
+    selectPreloadedFlow(flowId);
+  });
+
+  // Load flow button
+  loadPreloadedFlowBtn.addEventListener('click', loadSelectedPreloadedFlow);
+
+  // Download template button
+  downloadTemplateBtn.addEventListener('click', downloadPreloadedTemplate);
+
+  // Import CSV button
+  importPreloadedCsvBtn.addEventListener('click', () => {
+    preloadedCsvFileInput.click();
+  });
+
+  // CSV file input
+  preloadedCsvFileInput.addEventListener('change', handlePreloadedCsvImport);
+}
+
+// Select a preloaded flow
+function selectPreloadedFlow(flowId) {
+  if (!PRELOADED_FLOWS[flowId]) return;
+
+  // Remove previous selection
+  document.querySelectorAll('.preloaded-flow-card').forEach(card => {
+    card.classList.remove('selected');
+  });
+
+  // Add selection to clicked card
+  const card = document.querySelector(`[data-flow-id="${flowId}"]`);
+  if (card) {
+    card.classList.add('selected');
+  }
+
+  selectedPreloadedFlow = PRELOADED_FLOWS[flowId];
+  showPreloadedFlowDetails(selectedPreloadedFlow);
+  preloadedFlowActions.classList.remove('hidden-section');
+}
+
+// Show details for selected preloaded flow
+function showPreloadedFlowDetails(flow) {
+  if (!preloadedFlowInfo) return;
+
+  const csvPreview = flow.csvTemplate.slice(0, 2).map(row => 
+    Object.entries(row).map(([key, value]) => `${key}: ${value}`).join(', ')
+  ).join('\n');
+
+  preloadedFlowInfo.innerHTML = `
+    <div>
+      <strong>${flow.name}</strong> - ${flow.description}
+    </div>
+    <div class="preloaded-flow-steps">
+      <strong>Steps:</strong>
+      ${flow.steps.map((step, index) => `
+        <div class="preloaded-flow-step">
+          <div class="preloaded-flow-step-icon ${step.type}">${getStepIcon(step.type)}</div>
+          <span>${index + 1}. ${getStepTitle(step, index).title}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div>
+      <strong>Instructions:</strong> ${flow.instructions}
+    </div>
+    <div class="template-preview">
+      <strong>CSV Template Preview:</strong><br>
+      <pre>${csvPreview}</pre>
+    </div>
+  `;
+}
+
+// Load selected preloaded flow
+async function loadSelectedPreloadedFlow() {
+  if (!selectedPreloadedFlow) {
+    showMessage('Please select a preloaded flow first', 'error');
+    return;
+  }
+
+  try {
+    // Load the steps into the current flow
+    const res = await send({ 
+      from: 'panel', 
+      type: 'PANEL_SET_STEPS', 
+      steps: selectedPreloadedFlow.steps
+    });
+
+    if (res?.ok) {
+      showMessage(`Loaded "${selectedPreloadedFlow.name}" flow with ${selectedPreloadedFlow.steps.length} steps`, 'success');
+      await refreshSteps();
+    } else {
+      showMessage('Failed to load flow: ' + (res?.error || 'Unknown error'), 'error');
+    }
+  } catch (error) {
+    console.error('Error loading preloaded flow:', error);
+    showMessage('Failed to load flow: ' + error.message, 'error');
+  }
+}
+
+// Download CSV template for selected flow
+function downloadPreloadedTemplate() {
+  if (!selectedPreloadedFlow) {
+    showMessage('Please select a preloaded flow first', 'error');
+    return;
+  }
+
+  try {
+    const csvContent = convertToCSV(selectedPreloadedFlow.csvTemplate);
+    downloadBlob(`${selectedPreloadedFlow.id}-template.csv`, 'text/csv', csvContent);
+    showMessage(`Downloaded template for "${selectedPreloadedFlow.name}"`, 'success');
+  } catch (error) {
+    console.error('Error downloading template:', error);
+    showMessage('Failed to download template: ' + error.message, 'error');
+  }
+}
+
+// Handle CSV import for preloaded flow
+function handlePreloadedCsvImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (!file.name.toLowerCase().endsWith('.csv')) {
+    showMessage('Please select a CSV file', 'error');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const csvText = e.target.result;
+      const jsonData = parseCSV(csvText);
+
+      if (jsonData.length === 0) {
+        showMessage('CSV file is empty or has no valid data', 'error');
+        return;
+      }
+
+      // Validate CSV structure against the template
+      const templateKeys = Object.keys(selectedPreloadedFlow.csvTemplate[0] || {});
+      const csvKeys = Object.keys(jsonData[0] || {});
+      
+      const missingKeys = templateKeys.filter(key => !csvKeys.includes(key));
+      if (missingKeys.length > 0) {
+        showMessage(`CSV is missing required columns: ${missingKeys.join(', ')}`, 'error');
+        return;
+      }
+
+      // Load the data into the dataset
+      loadDatasetIntoTextarea(jsonData);
+      showMessage(`Successfully imported ${jsonData.length} rows for "${selectedPreloadedFlow.name}" flow`, 'success');
+
+    } catch (error) {
+      showMessage('Error parsing CSV: ' + error.message, 'error');
+    }
+  };
+
+  reader.onerror = () => {
+    showMessage('Error reading file', 'error');
+  };
+
+  reader.readAsText(file);
+
+  // Reset file input
+  event.target.value = '';
+}
+
+// Convert array of objects to CSV
+function convertToCSV(data) {
+  if (!Array.isArray(data) || data.length === 0) return '';
+
+  const headers = Object.keys(data[0]);
+  const csvRows = [
+    headers.join(','),
+    ...data.map(row => 
+      headers.map(header => {
+        const value = row[header] || '';
+        // Escape quotes and wrap in quotes if contains comma, quote, or newline
+        if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+          return `"${value.replace(/"/g, '""')}"`;
+        }
+        return value;
+      }).join(',')
+    )
+  ];
+
+  return csvRows.join('\n');
+}
+
+// Get step icon for preloaded flows
+function getStepIcon(type) {
+  const icons = {
+    'click': '🖱️',
+    'input': '⌨️',
+    'text_selection': '📝',
+    'shortcut': '⌨️',
+    'copy': '📋',
+    'cut': '✂️',
+    'paste': '📋',
+    'navigate_url': '🌐',
+    'find_by_value': '🔍',
+    'find_by_index': '🔢',
+    'loop_group': '🔄'
+  };
+  return icons[type] || '❓';
+}
+
+// Get step title for preloaded flows
+function getStepTitle(step, index) {
+  if (step.type === 'navigate_url') {
+    return {
+      title: 'Navigate to URL',
+      subtitle: step.column ? `Column: ${step.column}` : (step.value || step.url || 'URL')
+    };
+  }
+  
+  if (step.type === 'find_by_value') {
+    return {
+      title: 'Find By Value',
+      subtitle: `Column: ${step.column} → ${step.action || 'click'}`
+    };
+  }
+  
+  if (step.type === 'find_by_index') {
+    return {
+      title: 'Find By Index',
+      subtitle: `${step.selector} [${step.index}] → ${step.action || 'click'}`
+    };
+  }
+  
+  if (step.type === 'loop_group') {
+    return {
+      title: step.action === 'start' ? 'Loop Start' : 'Loop End',
+      subtitle: step.action === 'start' ? `Group by: ${step.groupBy || step.name || 'unknown'}` : 'End of loop'
+    };
+  }
+  
+  const titles = {
+    'click': 'Click Element',
+    'input': 'Input Text',
+    'text_selection': 'Select & Replace Text',
+    'shortcut': 'Keyboard Shortcut',
+    'copy': 'Copy Text',
+    'cut': 'Cut Text',
+    'paste': 'Paste Text'
+  };
+  
+  const baseTitle = titles[step.type] || `Step ${index + 1}`;
+  return { title: baseTitle, subtitle: '' };
+}
 
 // init
 (async function(){ 
+  initializeButtonStates();
   await refreshSteps(); 
   await refreshFlowsList(); 
   await refreshClips(); 
   initializeDatasetInfo();
+  initializeCollapsibleSections();
+  await initializePreloadedFlows();
 })();

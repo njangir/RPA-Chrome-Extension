@@ -9,6 +9,7 @@
   let currentUrls = new Map(); // Track current URLs per tab
   let pendingContinueResolve = null;
   let aborted = false;
+  let isPaused = false;
   const recordingTabs = new Set();
   const injectionRetries = new Map(); // Track injection retries per tab/frame
   
@@ -60,7 +61,7 @@
     try {
       const frames = await chrome.webNavigation.getAllFrames({ tabId });
       if (!frames || frames.length === 0) {
-        return [{ frameId: leafFrameId, url: undefined }];
+        return [{ url: undefined }];
       }
       
       const byId = new Map(frames.map(f => [f.frameId, f]));
@@ -78,14 +79,15 @@
         current = byId.get(current.parentFrameId);
       }
       
-      return path;
+      // Return only URLs for portability (remove frame IDs from exported data)
+      return path.map(frame => ({ url: frame.url }));
     } catch (error) {
       slog('buildFramePath error:', error);
-      return [{ frameId: leafFrameId, url: undefined }];
+      return [{ url: undefined }];
     }
   }
 
-  // Enhanced frame ID resolution with better fallback strategies
+  // Enhanced frame ID resolution with URL-based matching for portability
   async function resolveFrameIdFromPath(tabId, framePath) {
     try {
       const frames = await chrome.webNavigation.getAllFrames({ tabId });
@@ -93,7 +95,7 @@
         return 0; // Main frame fallback
       }
       
-      // Strategy 1: Exact URL matching from root to leaf
+      // Strategy 1: URL-based matching from root to leaf
       let candidates = frames.filter(f => f.parentFrameId === -1);
       
       for (let i = 0; i < framePath.length; i++) {
@@ -138,16 +140,11 @@
         return candidates[0].frameId;
       }
       
-      // Fallback to last recorded frameId if it exists
-      const leafId = framePath?.[framePath.length - 1]?.frameId ?? 0;
-      if (frames.some(f => f.frameId === leafId)) {
-        return leafId;
-      }
-      
+      // Fallback to main frame if no URL-based match found
       return 0; // Main frame fallback
     } catch (error) {
       slog('resolveFrameIdFromPath error:', error);
-      return framePath?.[framePath.length - 1]?.frameId ?? 0;
+      return 0; // Main frame fallback
     }
   }
 
@@ -188,7 +185,7 @@
                   log: (...args) => console.log('[MVP-Enhanced]', ...args),
                   buildLocator: () => ({ css: '', signature: {} }),
                   isTextInput: () => false,
-                  getFramePath: () => ({ frameIds: [] }),
+                  getFramePath: () => ({ frameUrls: [] }),
                   inferPlaceholder: () => ({}),
                   getValueFromRow: (step, row) => step?.originalTextSample || ''
                 };
@@ -229,6 +226,9 @@
       }
       
       slog('Starting recording on tab:', tab.id);
+      
+      // Reset pause state
+      isPaused = false;
       
       // Initialize data structures
       stepsByTab.set(tab.id, []);
@@ -304,6 +304,8 @@
       
       // Persist last flow
       const steps = stepsByTab.get(tab.id) || [];
+      slog('stopRecording - Tab ID:', tab.id, 'Steps count:', steps.length);
+      slog('stopRecording - Steps data:', steps);
       try {
         await chrome.storage.local.set({ 
           lastFlow: { 
@@ -312,6 +314,7 @@
             steps 
           } 
         });
+        slog('Last flow persisted successfully');
       } catch (e) {
         slog('Failed to persist last flow:', e);
       }
@@ -326,21 +329,33 @@
   // Enhanced step execution in frame
   async function runStepInFrame(tabId, step, row) {
     try {
+      slog('=== RUNNING STEP IN FRAME ===');
+      slog('Tab ID:', tabId);
+      slog('Step type:', step?.type);
+      slog('Step object:', JSON.stringify(step, null, 2));
+      slog('Row data:', JSON.stringify(row, null, 2));
+      
       const frameId = await resolveFrameIdFromPath(tabId, step.framePath || [{ frameId: step.frameId ?? 0 }]);
+      slog('Resolved frame ID:', frameId);
       
       // Ensure scripts are injected
+      slog('Injecting scripts...');
       const injectionSuccess = await injectScripts(tabId, frameId, [
         'enhanced-common.js',
         'enhanced-player.js'
       ]);
       
       if (!injectionSuccess) {
+        slog('Script injection failed');
         throw new Error('Failed to inject player scripts');
       }
+      slog('Scripts injected successfully');
       
       // Execute step
+      slog('Sending PLAYER_RUN message to content script...');
       return await new Promise((resolve) => {
         const timeout = setTimeout(() => {
+          slog('Step execution timeout after 30 seconds');
           resolve({ ok: false, error: 'Step execution timeout' });
         }, 30000); // 30 second timeout
         
@@ -349,7 +364,9 @@
           { frameId }, 
           (reply) => {
             clearTimeout(timeout);
+            slog('Received reply from content script:', JSON.stringify(reply, null, 2));
             if (chrome.runtime.lastError) {
+              slog('Chrome runtime error:', chrome.runtime.lastError.message);
               resolve({ ok: false, error: chrome.runtime.lastError.message });
             } else {
               resolve(reply || { ok: false, error: 'No response from player' });
@@ -359,6 +376,7 @@
       });
     } catch (error) {
       slog('Error running step in frame:', error);
+      slog('Error stack:', error.stack);
       return { ok: false, error: error.message };
     }
   }
@@ -604,6 +622,7 @@
   
   async function handleHighlightElement(msg, send) {
     try {
+      slog('Handling highlight element request:', msg);
       const tab = await getActiveTab();
       if (!tab) {
         return send({ ok: false, error: 'No active tab found' });
@@ -615,6 +634,8 @@
       if (!selector) {
         return send({ ok: false, error: 'No selector provided' });
       }
+      
+      slog(`Highlighting element with selector: ${selector} in tab ${tab.id}`);
       
       // Get the step to find the frame path
       const steps = stepsByTab.get(tab.id) || [];
@@ -628,6 +649,7 @@
       let targetFrameId = 0;
       if (step.framePath && step.framePath.length > 0) {
         targetFrameId = await resolveFrameIdFromPath(tab.id, step.framePath);
+        slog(`Using frame ${targetFrameId} for highlighting`);
       }
       
       // Inject test scripts if needed
@@ -639,6 +661,7 @@
       // Send highlight message to content script
       const result = await new Promise((resolve) => {
         const timeout = setTimeout(() => {
+          slog('Highlight timeout');
           resolve({ ok: false, error: 'Highlight timeout' });
         }, 5000);
         
@@ -649,6 +672,7 @@
           frameId: targetFrameId
         }, (response) => {
           clearTimeout(timeout);
+          slog('Highlight response from content script:', response);
           resolve(response || { ok: false, error: 'No response from content script' });
         });
       });
@@ -657,6 +681,7 @@
         slog(`Element highlighted successfully: ${selector}`);
         return send({ ok: true });
       } else {
+        slog(`Element highlight failed: ${result.error}`);
         return send({ ok: false, error: result.error || 'Element not found' });
       }
       
@@ -784,6 +809,13 @@
           if (aborted) break;
           
           const step = steps[k];
+          
+          // Add delay before step (except for first step)
+          if (k > 0 && step.delay !== undefined && step.delay > 0) {
+            slog(`Waiting ${step.delay}ms before step ${k + 1}`);
+            await new Promise(resolve => setTimeout(resolve, step.delay));
+          }
+          
           const result = await runStepInFrame(tab.id, step, rows[i]);
           
           if (!result?.ok) {
@@ -894,6 +926,33 @@
     }
   }
 
+  // Error handling function
+  async function handleStepError(msg, send) {
+    try {
+      const { step, stepIndex, error, context } = msg;
+      
+      // Send error to panel for user interaction
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          type: 'PANEL_STEP_ERROR',
+          step: step,
+          stepIndex: stepIndex,
+          error: error,
+          context: context
+        }, (reply) => {
+          resolve(reply || { action: 'skip' });
+        });
+      });
+      
+      // Send response back to content script
+      send(response);
+      
+    } catch (err) {
+      slog('Error handling step error:', err);
+      send({ action: 'skip' });
+    }
+  }
+
   // Storage functions (unchanged)
   async function listFlows() {
     const { flows = {} } = await chrome.storage.local.get('flows');
@@ -972,6 +1031,14 @@
   chrome.runtime.onMessage.addListener((msg, sender, send) => {
     (async () => {
       try {
+        // Enhanced logging for debugging
+        slog('=== MESSAGE RECEIVED ===');
+        slog('Message type:', msg?.type);
+        slog('Sender tab ID:', sender?.tab?.id);
+        slog('Sender frame ID:', sender?.frameId);
+        slog('Full message:', JSON.stringify(msg, null, 2));
+        slog('========================');
+        
         // Handle debug messages
         if (msg?.type === 'DEBUG_TEST') {
           slog('Debug test message received from tab:', sender.tab?.id);
@@ -980,6 +1047,12 @@
         
         // Handle recorder steps
         if (msg?.type === 'RECORDER_STEP' && sender.tab) {
+          // Check if recording is paused
+          if (isPaused) {
+            slog('Recording is paused, ignoring step');
+            return send?.({ ok: true });
+          }
+          
           const tabId = sender.tab.id;
           if (!stepsByTab.has(tabId)) {
             stepsByTab.set(tabId, []);
@@ -988,12 +1061,11 @@
           const framePath = await buildFramePath(tabId, sender.frameId ?? 0);
           const step = { 
             ...msg.payload, 
-            frameId: sender.frameId ?? 0, 
             framePath 
           };
           
           stepsByTab.get(tabId).push(step);
-          slog('RECORDER_STEP', tabId, step.type, step.target?.css, 'frameId=', step.frameId);
+          slog('RECORDER_STEP', tabId, step.type, step.target?.css, 'framePath=', step.framePath);
           return send?.({ ok: true });
         }
         
@@ -1014,6 +1086,24 @@
           return send?.({ ok: true });
         }
         
+        // Handle extraction data (similar to clips)
+        if (msg?.type === 'RECORDER_EXTRACT' && sender.tab) {
+          const tabId = sender.tab.id;
+          if (!clipsByTab.has(tabId)) {
+            clipsByTab.set(tabId, []);
+          }
+          
+          const framePath = await buildFramePath(tabId, sender.frameId ?? 0);
+          const frameUrl = framePath?.[framePath.length - 1]?.url;
+          
+          clipsByTab.get(tabId).push({ 
+            ...msg.payload, 
+            frameUrl,
+            type: 'extract'
+          });
+          return send?.({ ok: true });
+        }
+        
         // Handle panel messages
         if (msg?.from !== 'panel') return;
         
@@ -1028,9 +1118,24 @@
             send({ ok: true, steps });
             break;
             
+          case 'PANEL_PAUSE':
+            isPaused = true;
+            slog('Recording paused');
+            send({ ok: true });
+            break;
+            
+          case 'PANEL_RESUME':
+            isPaused = false;
+            slog('Recording resumed');
+            send({ ok: true });
+            break;
+            
           case 'PANEL_GET_STEPS':
-            const tab = await getActiveTab();
-            send({ ok: true, steps: stepsByTab.get(tab?.id) || [] });
+            const getStepsTab = await getActiveTab();
+            const getSteps = stepsByTab.get(getStepsTab?.id) || [];
+            slog('PANEL_GET_STEPS - Tab ID:', getStepsTab?.id, 'Steps count:', getSteps.length);
+            slog('Steps data:', getSteps);
+            send({ ok: true, steps: getSteps });
             break;
             
           case 'PANEL_GET_START_URL':
@@ -1042,6 +1147,15 @@
           case 'PANEL_CLEAR_STEPS':
             const clearTab = await getActiveTab();
             if (clearTab) stepsByTab.set(clearTab.id, []);
+            send({ ok: true });
+            break;
+            
+          case 'PANEL_SET_STEPS':
+            const setStepsTab = await getActiveTab();
+            if (setStepsTab && msg.steps) {
+              stepsByTab.set(setStepsTab.id, msg.steps);
+              slog('Steps updated for tab', setStepsTab.id, 'count:', msg.steps.length);
+            }
             send({ ok: true });
             break;
             
@@ -1119,18 +1233,6 @@
             await handleHighlightElement(msg, send);
             break;
             
-          case 'PANEL_SET_STEPS':
-            // Allow manual setting of steps (for inserting special steps)
-            const setTab = await getActiveTab();
-            if (setTab && msg.steps) {
-              stepsByTab.set(setTab.id, msg.steps);
-              slog(`Set ${msg.steps.length} steps for tab ${setTab.id}`);
-              send({ ok: true });
-            } else {
-              send({ ok: false, error: 'No tab or steps provided' });
-            }
-            break;
-            
           case 'PANEL_PLAY_ALL_GROUPED':
             // Play with grouped execution (for loop groups)
             await playAllGrouped(msg.rows || [], { 
@@ -1141,6 +1243,11 @@
             send({ ok: true });
             break;
             
+          case 'PLAYER_STEP_ERROR':
+            // Handle step error from content script
+            await handleStepError(msg, send);
+            break;
+            
           case 'DATASET_BUTTON_SUCCESS':
           case 'DATASET_DROP_SUCCESS':
             // These are responses from content script, just acknowledge
@@ -1148,6 +1255,15 @@
             break;
             
           default:
+            slog('*** UNKNOWN MESSAGE TYPE ERROR ***');
+            slog('Unknown message type:', msg?.type);
+            slog('Full message object:', JSON.stringify(msg, null, 2));
+            slog('Sender details:', {
+              tabId: sender?.tab?.id,
+              frameId: sender?.frameId,
+              url: sender?.url
+            });
+            slog('*** END UNKNOWN MESSAGE TYPE ERROR ***');
             send({ ok: false, error: 'Unknown message type' });
         }
       } catch (error) {

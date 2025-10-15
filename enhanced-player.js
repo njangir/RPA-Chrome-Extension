@@ -15,6 +15,66 @@
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+  // Error handling function
+  async function handleStepError(step, stepIndex, error, context) {
+    try {
+      // Send error to service worker for panel handling
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          type: 'PLAYER_STEP_ERROR',
+          step: step,
+          stepIndex: stepIndex,
+          error: {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+          },
+          context: context
+        }, (reply) => {
+          resolve(reply || { action: 'skip' });
+        });
+      });
+      
+      return response;
+    } catch (err) {
+      log('Error sending error to panel:', err);
+      return { action: 'skip' }; // Default to skip on communication error
+    }
+  }
+
+  // Helper function to get key code for keyboard events
+  function getKeyCode(key) {
+    const keyCodes = {
+      'Tab': 9,
+      'Enter': 13,
+      'Escape': 27,
+      'ArrowUp': 38,
+      'ArrowDown': 40,
+      'ArrowLeft': 37,
+      'ArrowRight': 39,
+      'Home': 36,
+      'End': 35,
+      'PageUp': 33,
+      'PageDown': 34,
+      'Backspace': 8,
+      'Delete': 46,
+      'Insert': 45,
+      'F1': 112,
+      'F2': 113,
+      'F3': 114,
+      'F4': 115,
+      'F5': 116,
+      'F6': 117,
+      'F7': 118,
+      'F8': 119,
+      'F9': 120,
+      'F10': 121,
+      'F11': 122,
+      'F12': 123
+    };
+    return keyCodes[key] || 0;
+  }
+
   // Enhanced shadow DOM traversal
   function* allShadowRoots(root) {
     if (!root) return;
@@ -771,19 +831,29 @@
       throw new Error('Steps must be an array');
     }
     
-    log(`Running ${steps.length} steps`);
+    log(`=== RUNNING STEPS ===`);
+    log(`Total steps: ${steps.length}`);
+    log(`Row data:`, JSON.stringify(row, null, 2));
+    log(`Start URL:`, startUrl);
+    log(`=====================`);
     
     // Navigate to start URL if provided
     if (startUrl) {
+      log('Navigating to start URL:', startUrl);
       await navigateToStartUrl(startUrl);
     }
     
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
       
+      log(`\n--- STEP ${i + 1}/${steps.length} ---`);
+      log(`Step type:`, step.type);
+      log(`Step object:`, JSON.stringify(step, null, 2));
+      
       try {
         // Handle sleep steps
         if (step.type === 'sleep') {
+          log(`Sleeping for ${step.value || 300}ms`);
           await sleep(step.value || 300);
           continue;
         }
@@ -804,6 +874,7 @@
         }
         
         // Execute action
+        log(`Processing step type: ${step.type}`);
         switch (step.type) {
           case 'navigate_url': {
             // Navigate to URL from dataset column
@@ -928,16 +999,186 @@
             }
             break;
             
+          case 'key_press':
+            if (el) {
+              // Focus the element first
+              el.focus();
+              
+              // Create and dispatch keydown event
+              const keyEvent = new KeyboardEvent('keydown', {
+                bubbles: true,
+                cancelable: true,
+                key: step.key,
+                code: step.code,
+                keyCode: getKeyCode(step.key),
+                which: getKeyCode(step.key)
+              });
+              
+              el.dispatchEvent(keyEvent);
+              
+              // Also dispatch keyup event for completeness
+              const keyUpEvent = new KeyboardEvent('keyup', {
+                bubbles: true,
+                cancelable: true,
+                key: step.key,
+                code: step.code,
+                keyCode: getKeyCode(step.key),
+                which: getKeyCode(step.key)
+              });
+              
+              el.dispatchEvent(keyUpEvent);
+              
+              log(`Pressed key: ${step.key} (${step.code})`);
+            }
+            break;
+            
+          case 'extract_title':
+            try {
+              const title = document.title || '';
+              step.extractedData = {
+                title: title,
+                timestamp: Date.now()
+              };
+              log(`Extracted title: ${title}`);
+            } catch (err) {
+              log('Error extracting title:', err);
+              step.extractedData = {
+                title: '',
+                timestamp: Date.now()
+              };
+            }
+            break;
+            
+          case 'extract_url':
+            try {
+              const url = location.href || '';
+              step.extractedData = {
+                url: url,
+                timestamp: Date.now()
+              };
+              log(`Extracted URL: ${url}`);
+            } catch (err) {
+              log('Error extracting URL:', err);
+              step.extractedData = {
+                url: '',
+                timestamp: Date.now()
+              };
+            }
+            break;
+            
+          case 'extract_metadata':
+            try {
+              const metadata = {
+                title: document.title || '',
+                url: location.href || '',
+                timestamp: Date.now(),
+                frameUrl: location.href
+              };
+              step.extractedData = metadata;
+              log(`Extracted metadata:`, metadata);
+            } catch (err) {
+              log('Error extracting metadata:', err);
+              step.extractedData = {
+                title: '',
+                url: '',
+                timestamp: Date.now(),
+                frameUrl: location.href
+              };
+            }
+            break;
+            
+          case 'file_upload':
+            if (el && el.tagName === 'INPUT' && el.type === 'file') {
+              // Click the file input to open file dialog
+              el.click();
+              
+              // Show notification to user
+              const notification = document.createElement('div');
+              notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #f97316;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 10000;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+                max-width: 300px;
+              `;
+              notification.innerHTML = `
+                <div style="font-weight: bold; margin-bottom: 5px;">📁 File Upload Required</div>
+                <div>Please select file(s) for upload:</div>
+                <div style="font-size: 12px; margin-top: 5px; opacity: 0.9;">
+                  ${step.accept ? `Accept: ${step.accept}` : ''}
+                  ${step.multiple ? ' (Multiple files allowed)' : ''}
+                </div>
+              `;
+              document.body.appendChild(notification);
+              
+              // Remove notification after 5 seconds
+              setTimeout(() => {
+                if (notification.parentNode) {
+                  notification.parentNode.removeChild(notification);
+                }
+              }, 5000);
+              
+              log('File upload dialog opened - user must select files manually');
+            } else {
+              log('Element is not a file input - cannot upload files');
+            }
+            break;
+            
           default:
+            log('*** UNKNOWN STEP TYPE ***');
             log('Unknown step type:', step.type);
+            log('Step object:', JSON.stringify(step, null, 2));
+            log('Available step types: click, input, shortcut, navigate_url, find_by_value, find_by_index, loop_group, file_upload, sleep');
+            log('*** END UNKNOWN STEP TYPE ***');
+            throw new Error(`Unknown step type: ${step.type}`);
         }
         
-        // Wait after step
-        await sleep(step.waitAfterMs || 200);
+        // Wait after step - use recorded delay if available, otherwise use default
+        const delayMs = step.delay !== undefined ? step.delay : (step.waitAfterMs || 200);
+        if (delayMs > 0) {
+          log(`Waiting ${delayMs}ms after step ${i + 1}`);
+          await sleep(delayMs);
+        }
         
       } catch (error) {
-        log(`Error executing step ${i + 1}:`, error);
-        throw new Error(`Step ${i + 1} failed: ${error.message}`);
+        log(`*** ERROR IN STEP ${i + 1} ***`);
+        log(`Step type:`, step.type);
+        log(`Step object:`, JSON.stringify(step, null, 2));
+        log(`Error message:`, error.message);
+        log(`Error stack:`, error.stack);
+        log(`*** END ERROR IN STEP ${i + 1} ***`);
+        
+        // Send error to panel for user handling
+        const errorResult = await handleStepError(step, i, error, {
+          url: location.href,
+          timestamp: Date.now(),
+          userAgent: navigator.userAgent,
+          stepCount: steps.length,
+          currentRow: row ? row._rowIndex : 0
+        });
+        
+        if (errorResult.action === 'stop') {
+          log('Playback stopped by user');
+          return false;
+        } else if (errorResult.action === 'skip') {
+          log(`Step ${i + 1} skipped by user`);
+          continue;
+        } else if (errorResult.action === 'retry') {
+          log(`Retrying step ${i + 1}`);
+          i--; // Retry the same step
+          continue;
+        } else {
+          // Default to skip if dialog was closed
+          log(`Step ${i + 1} skipped (dialog closed)`);
+          continue;
+        }
       }
     }
     
@@ -971,17 +1212,30 @@
   
   async function highlightElementForTest(selector) {
     try {
+      log('Attempting to highlight element with selector:', selector);
       const element = deepQuerySelector(selector);
       if (!element) {
+        log('Element not found with selector:', selector);
         return { ok: false, error: 'Element not found' };
       }
+      
+      log('Element found:', element.tagName, element.id ? '#' + element.id : '', element.className);
       
       // Remove any existing highlights
       removeElementHighlight();
       
-      // Add highlight styles
+      // Add more visible highlight styles
       const originalStyle = element.style.cssText;
-      element.style.cssText = originalStyle + '; outline: 3px solid #ff0000 !important; outline-offset: 2px !important; background-color: rgba(255, 0, 0, 0.1) !important;';
+      const highlightStyle = originalStyle + 
+        '; outline: 5px solid #ff0000 !important; ' +
+        'outline-offset: 3px !important; ' +
+        'background-color: rgba(255, 0, 0, 0.2) !important; ' +
+        'box-shadow: 0 0 0 5px rgba(255, 0, 0, 0.3) !important; ' +
+        'border: 3px solid #ff0000 !important; ' +
+        'position: relative !important; ' +
+        'z-index: 9999 !important;';
+      
+      element.style.cssText = highlightStyle;
       
       // Store reference for cleanup
       window.__mvpTestHighlightedElement = element;
@@ -993,6 +1247,13 @@
         inline: 'center',
         behavior: 'smooth'
       });
+      
+      log('Element highlighted successfully');
+      
+      // Auto-remove highlight after 5 seconds
+      setTimeout(() => {
+        removeElementHighlight();
+      }, 5000);
       
       return { ok: true };
       
@@ -1149,6 +1410,114 @@
           }
           break;
           
+        case 'key_press':
+          // Simulate key press
+          element.focus();
+          
+          // Create and dispatch keydown event
+          const keyEvent = new KeyboardEvent('keydown', {
+            bubbles: true,
+            cancelable: true,
+            key: step.key,
+            code: step.code,
+            keyCode: getKeyCode(step.key),
+            which: getKeyCode(step.key)
+          });
+          
+          element.dispatchEvent(keyEvent);
+          
+          // Also dispatch keyup event for completeness
+          const keyUpEvent = new KeyboardEvent('keyup', {
+            bubbles: true,
+            cancelable: true,
+            key: step.key,
+            code: step.code,
+            keyCode: getKeyCode(step.key),
+            which: getKeyCode(step.key)
+          });
+          
+          element.dispatchEvent(keyUpEvent);
+          
+          result.result = `Pressed key: ${step.key} (${step.code})`;
+          break;
+          
+        case 'extract_title':
+          // Extract page title
+          const title = document.title || '';
+          result.result = `Extracted title: ${title}`;
+          result.extractedData = {
+            title: title,
+            timestamp: Date.now()
+          };
+          break;
+          
+        case 'extract_url':
+          // Extract page URL
+          const url = location.href || '';
+          result.result = `Extracted URL: ${url}`;
+          result.extractedData = {
+            url: url,
+            timestamp: Date.now()
+          };
+          break;
+          
+        case 'extract_metadata':
+          // Extract page metadata
+          const metadata = {
+            title: document.title || '',
+            url: location.href || '',
+            timestamp: Date.now(),
+            frameUrl: location.href
+          };
+          result.result = `Extracted metadata: ${metadata.title} | ${metadata.url}`;
+          result.extractedData = metadata;
+          break;
+          
+        case 'file_upload':
+          // Handle file upload - show user notification
+          if (element.tagName === 'INPUT' && element.type === 'file') {
+            // Click the file input to open file dialog
+            element.click();
+            
+            // Show notification to user
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              background: #f97316;
+              color: white;
+              padding: 15px 20px;
+              border-radius: 8px;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+              z-index: 10000;
+              font-family: Arial, sans-serif;
+              font-size: 14px;
+              max-width: 300px;
+            `;
+            notification.innerHTML = `
+              <div style="font-weight: bold; margin-bottom: 5px;">📁 File Upload Required</div>
+              <div>Please select file(s) for upload:</div>
+              <div style="font-size: 12px; margin-top: 5px; opacity: 0.9;">
+                ${step.accept ? `Accept: ${step.accept}` : ''}
+                ${step.multiple ? ' (Multiple files allowed)' : ''}
+              </div>
+            `;
+            document.body.appendChild(notification);
+            
+            // Remove notification after 5 seconds
+            setTimeout(() => {
+              if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+              }
+            }, 5000);
+            
+            result.result = `File upload dialog opened - user must select files manually`;
+          } else {
+            result.result = `Element is not a file input - cannot upload files`;
+          }
+          break;
+          
         default:
           return { ok: false, error: `Unsupported step type: ${step.type}` };
       }
@@ -1173,11 +1542,27 @@
 
   // Message handling
   chrome.runtime.onMessage.addListener((msg, sender, send) => {
+    log('=== ENHANCED PLAYER MESSAGE RECEIVED ===');
+    log('Message type:', msg?.type);
+    log('Sender tab ID:', sender?.tab?.id);
+    log('Sender frame ID:', sender?.frameId);
+    log('Full message:', JSON.stringify(msg, null, 2));
+    log('========================================');
+    
     if (msg?.type === 'PLAYER_RUN') {
+      log('Processing PLAYER_RUN message');
+      log('Steps to run:', msg.steps?.length || 0);
+      log('Row data:', JSON.stringify(msg.row, null, 2));
+      log('Start URL:', msg.startUrl);
+      
       runSteps(msg.steps || [], msg.row || {}, msg.startUrl || null)
-        .then(() => send({ ok: true }))
+        .then(() => {
+          log('Steps completed successfully');
+          send({ ok: true });
+        })
         .catch(err => {
           log('Error running steps:', err);
+          log('Error stack:', err?.stack);
           send({ ok: false, error: String(err?.stack || err) });
         });
       return true; // Keep message channel open for async response
@@ -1235,5 +1620,9 @@
     }
   });
 
+  // Make highlight function available globally for testing
+  window.testHighlight = highlightElementForTest;
+  window.testRemoveHighlight = removeElementHighlight;
+  
   log('Enhanced player ready');
 })();
