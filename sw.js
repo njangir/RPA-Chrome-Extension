@@ -1328,6 +1328,11 @@
             send({ ok: true });
             break;
             
+          case 'PLAYER_TEST':
+            slog('Received PLAYER_TEST message from enhanced player');
+            send({ ok: true, message: 'Service worker received test message' });
+            break;
+            
           case 'DATASET_BUTTON_SUCCESS':
           case 'DATASET_DROP_SUCCESS':
             // These are responses from content script, just acknowledge
