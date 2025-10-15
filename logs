@@ -1,19 +1,48 @@
-[MVP-Enhanced][sw] === RUNNING STEP IN FRAME ===
+[MVP-Enhanced][sw] ========================
+sw.js:17 [MVP-Enhanced][sw] PANEL_GET_STEPS - Tab ID: 450171671 Steps count: 2
+sw.js:17 [MVP-Enhanced][sw] Steps data: Array(2)
+sw.js:17 [MVP-Enhanced][sw] === MESSAGE RECEIVED ===
+sw.js:17 [MVP-Enhanced][sw] Message type: PANEL_PLAY_ALL
+sw.js:17 [MVP-Enhanced][sw] Sender tab ID: undefined
+sw.js:17 [MVP-Enhanced][sw] Sender frame ID: undefined
+sw.js:17 [MVP-Enhanced][sw] Full message: {
+  "from": "panel",
+  "type": "PANEL_PLAY_ALL",
+  "rows": [
+    {}
+  ],
+  "interactive": false
+}
+sw.js:17 [MVP-Enhanced][sw] ========================
+sw.js:17 [MVP-Enhanced][sw] Starting playback of 1 rows with 2 steps each
+sw.js:17 [MVP-Enhanced][sw] Playing row 1/1
+sw.js:17 [MVP-Enhanced][sw] === RUNNING STEP IN FRAME ===
 sw.js:17 [MVP-Enhanced][sw] Tab ID: 450171671
 sw.js:17 [MVP-Enhanced][sw] Step type: click
 sw.js:17 [MVP-Enhanced][sw] Step object: {
-  "id": "70f82053-4a44-4679-9854-2964d55e8dd8",
+  "id": "a9a86745-605a-416c-89cb-8e75525d279e",
   "type": "click",
   "target": {
-    "css": "#__item0-__xmlview2--menuTree-6-content",
+    "css": "#__item0-__xmlview2--menuTree-2",
     "signature": {
-      "tag": "div",
-      "id": "__item0-__xmlview2--menuTree-6-content",
+      "tag": "li",
+      "id": "__item0-__xmlview2--menuTree-2",
       "classes": [
-        "sapMLIBContent"
+        "sapMLIB",
+        "sapMLIB-CTX",
+        "sapMLIBShowSeparator",
+        "sapMLIBTypeActive",
+        "sapMLIBActionable",
+        "sapMLIBFocusable",
+        "sapMTreeItemBase",
+        "sapMSTI",
+        "sapUiNoMarginBegin",
+        "sapMLIBActive"
       ],
-      "nthOfType": 1,
-      "textSnippet": "System Administration"
+      "labelText": "Manage User Learning",
+      "nthOfType": 3,
+      "textSnippet": "Learning Activities",
+      "role": "treeitem"
     }
   },
   "framePath": [
@@ -23,7 +52,7 @@ sw.js:17 [MVP-Enhanced][sw] Step object: {
       "parentFrameId": -1
     }
   ],
-  "timestamp": 1760528777557,
+  "timestamp": 1760529630029,
   "url": "https://capgemitec.plateau.com/learning/admin/theming/updateThemingInfo.do?4102444799=0#/learning/systemApp@/adminHome",
   "delay": 0,
   "frameId": 0
@@ -34,13 +63,12 @@ sw.js:17 [MVP-Enhanced][sw] Injecting scripts...
 sw.js:17 [MVP-Enhanced][sw] Successfully injected scripts into frame 0
 sw.js:17 [MVP-Enhanced][sw] Scripts injected successfully
 sw.js:17 [MVP-Enhanced][sw] Sending PLAYER_RUN message to content script...
-sw.js:17 [MVP-Enhanced][sw] Received reply from content script: {
-  "success": false,
-  "error": "Unknown message type"
-}
-sw.js:17 [MVP-Enhanced][sw] Error during playback: Error: Step 1 failed: Unknown message type
-    at playAll (sw.js:826:19)
-    at async sw.js:1168:13
-sw.js:17 [MVP-Enhanced][sw] Error handling message: Error: Step 1 failed: Unknown message type
-    at playAll (sw.js:826:19)
-    at async sw.js:1168:13
+sw.js:17 [MVP-Enhanced][sw] Received reply from content script: undefined
+sw.js:17 [MVP-Enhanced][sw] Chrome runtime error: The message port closed before a response was received.
+sw.js:17 [MVP-Enhanced][sw] Error details: ObjectframeId: 0message: "The message port closed before a response was received."tabId: 450171671[[Prototype]]: Object
+sw.js:17 [MVP-Enhanced][sw] Error during playback: Error: Step 1 failed: The message port closed before a response was received.
+    at playAll (sw.js:848:19)
+    at async sw.js:1190:13
+sw.js:17 [MVP-Enhanced][sw] Error handling message: Error: Step 1 failed: The message port closed before a response was received.
+    at playAll (sw.js:848:19)
+    at async sw.js:1190:13
