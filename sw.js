@@ -341,6 +341,22 @@
       
       const frameId = await resolveFrameIdFromPath(tabId, step.framePath || [{ frameId: step.frameId ?? 0 }]);
       slog('Resolved frame ID:', frameId);
+      slog('Step frame path:', JSON.stringify(step.framePath, null, 2));
+      slog('Step frame ID:', step.frameId);
+      
+      // Check frame info before injection
+      try {
+        const frames = await chrome.webNavigation.getAllFrames({ tabId });
+        const targetFrame = frames.find(f => f.frameId === frameId);
+        slog('Target frame info:', {
+          frameId: frameId,
+          url: targetFrame?.url,
+          parentFrameId: targetFrame?.parentFrameId,
+          frameType: targetFrame?.frameType
+        });
+      } catch (e) {
+        slog('Could not get frame info:', e);
+      }
       
       // Ensure scripts are injected
       slog('Injecting scripts...');
@@ -357,6 +373,38 @@
       
       // Wait a moment for scripts to initialize
       await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Test if enhanced player is receiving messages
+      slog('Testing enhanced player message reception...');
+      try {
+        const testResponse = await new Promise((resolve) => {
+          const testTimeout = setTimeout(() => {
+            resolve({ ok: false, error: 'Test timeout' });
+          }, 5000);
+          
+          chrome.tabs.sendMessage(tabId, 
+            { type: 'TEST_PLAYER' }, 
+            { frameId }, 
+            (reply) => {
+              clearTimeout(testTimeout);
+              if (chrome.runtime.lastError) {
+                slog('Test message error:', chrome.runtime.lastError.message);
+                resolve({ ok: false, error: chrome.runtime.lastError.message });
+              } else {
+                resolve(reply || { ok: false, error: 'No test response' });
+              }
+            }
+          );
+        });
+        
+        slog('Test response:', JSON.stringify(testResponse, null, 2));
+        
+        if (!testResponse.ok) {
+          slog('Enhanced player test failed, but continuing with step execution');
+        }
+      } catch (error) {
+        slog('Test message failed:', error);
+      }
       
       // Execute step
       slog('Sending PLAYER_RUN message to content script...');

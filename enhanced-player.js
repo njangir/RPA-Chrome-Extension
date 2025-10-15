@@ -1549,6 +1549,13 @@
     log('Full message:', JSON.stringify(msg, null, 2));
     log('========================================');
     
+    // Test handler to verify message reception
+    if (msg?.type === 'TEST_PLAYER') {
+      log('Received TEST_PLAYER message - player is working');
+      send({ ok: true, message: 'Player is working' });
+      return true;
+    }
+    
     // Only handle player-specific messages
     if (msg?.type === 'PLAYER_RUN') {
       log('Processing PLAYER_RUN message');
@@ -1634,6 +1641,8 @@
   window.testRemoveHighlight = removeElementHighlight;
   
   log('Enhanced player ready');
+  log('Chrome runtime available:', typeof chrome !== 'undefined' && typeof chrome.runtime !== 'undefined');
+  log('Message listener registered:', typeof chrome.runtime.onMessage !== 'undefined');
   
   // Notify service worker that player is ready
   try {
