@@ -14,7 +14,10 @@
   const injectionRetries = new Map(); // Track injection retries per tab/frame
   
   function slog(...a) { 
-    console.log('[MVP-Enhanced][sw]', ...a); 
+    // Minimal logging for communication testing
+    if (a[0] && (a[0].includes('MESSAGE') || a[0].includes('COMMUNICATION') || a[0].includes('ERROR'))) {
+      console.log('[SW]', ...a);
+    }
   }
 
   // Enhanced error handling
@@ -186,7 +189,7 @@
               // Minimal functionality injection
               if (!window.__mvpEnhancedCommon) {
                 window.__mvpEnhancedCommon = {
-                  log: (...args) => console.log('[MVP-Enhanced]', ...args),
+                  log: () => {},
                   buildLocator: () => ({ css: '', signature: {} }),
                   isTextInput: () => false,
                   getFramePath: () => ({ frameIds: [] }),
@@ -1106,16 +1109,11 @@
     (async () => {
       try {
         // Enhanced logging for debugging
-        slog('=== MESSAGE RECEIVED ===');
-        slog('Message type:', msg?.type);
-        slog('Sender tab ID:', sender?.tab?.id);
-        slog('Sender frame ID:', sender?.frameId);
-        slog('Full message:', JSON.stringify(msg, null, 2));
-        slog('========================');
+        slog('COMMUNICATION: Message received', msg?.type, 'from tab', sender?.tab?.id);
         
         // Handle debug messages
         if (msg?.type === 'DEBUG_TEST') {
-          slog('Debug test message received from tab:', sender.tab?.id);
+          slog('COMMUNICATION: Debug test successful');
           return send({ ok: true, message: 'Service worker is working' });
         }
         

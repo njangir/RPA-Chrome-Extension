@@ -53,7 +53,13 @@ const datasetButtons = document.getElementById('datasetButtons');
 const startUrlDisplay = document.getElementById('startUrlDisplay');
 const navigateToStartBtn = document.getElementById('navigateToStartBtn');
 
-function send(msg){ return new Promise((resolve)=> chrome.runtime.sendMessage(msg, resolve)); }
+function send(msg){ 
+  // Log key communication messages
+  if (msg.type && (msg.type.includes('PANEL_') || msg.type.includes('DEBUG'))) {
+    console.log('[PANEL] Sending:', msg.type);
+  }
+  return new Promise((resolve)=> chrome.runtime.sendMessage(msg, resolve)); 
+}
 
 // Real-time refresh functionality
 let realTimeRefreshInterval = null;
@@ -63,7 +69,6 @@ function startRealTimeRefresh() {
   
   // Only start if we're actually recording
   if (!isRecording) {
-    console.log('Not starting real-time refresh - not recording');
     return;
   }
   
@@ -72,7 +77,6 @@ function startRealTimeRefresh() {
     try {
       // Double-check we're still recording before refreshing
       if (!isRecording) {
-        console.log('Stopping real-time refresh - recording stopped');
         stopRealTimeRefresh();
         return;
       }
@@ -106,7 +110,6 @@ function parseCSV(csvText) {
     for (let i = 1; i < lines.length; i++) {
       const values = parseCSVLine(lines[i]);
       if (values.length !== headers.length) {
-        console.warn(`Row ${i + 1} has ${values.length} columns, expected ${headers.length}. Skipping.`);
         continue;
       }
       
@@ -290,7 +293,6 @@ function handleDatasetButtonClick(key, value) {
           value: value
         }, (response) => {
           if (chrome.runtime.lastError) {
-            console.log('Could not send message to content script:', chrome.runtime.lastError.message);
             // Fallback: copy to clipboard
             copyToClipboard(value);
             showMessage(`Copied "${key}" value to clipboard: ${value}`, 'success');
@@ -315,7 +317,7 @@ function handleDatasetButtonClick(key, value) {
 function copyToClipboard(text) {
   try {
     navigator.clipboard.writeText(text).then(() => {
-      console.log('Text copied to clipboard:', text);
+      // Text copied successfully
     }).catch(err => {
       console.error('Failed to copy text: ', err);
       // Fallback method
@@ -441,9 +443,6 @@ navigateToStartBtn.addEventListener('click', async () => {
 async function refreshSteps(){
   const res = await send({ from:'panel', type:'PANEL_GET_STEPS' });
   const steps = (res && res.steps) || [];
-  console.log('Refreshing steps:', steps.length, 'steps found');
-  console.log('Steps data:', steps);
-  console.log('Response data:', res);
   stepCountEl.textContent = `${steps.length} step${steps.length===1?'':'s'}`;
   
   // Update JSON view only if it's not being actively edited
@@ -513,8 +512,13 @@ startBtn.onclick = async () => {
     const arr = JSON.parse(jsonInput.value || '[]');
     if (Array.isArray(arr) && arr.length) seedRow = arr[0];
   } catch {}
+  console.log('[PANEL] Starting recording...');
   const res = await send({ from:'panel', type:'PANEL_START', seedRow });
-  if (!res?.ok) alert('Failed to start: ' + (res?.error||''));
+  if (!res?.ok) {
+    alert('Failed to start: ' + (res?.error||''));
+  } else {
+    console.log('[PANEL] Recording started successfully');
+  }
   await refreshSteps();
   // Start real-time refresh during recording
   startRealTimeRefresh();
@@ -542,8 +546,13 @@ pauseResumeBtn.onclick = async () => {
 stopPlayBtn.onclick = async () => {
   if (isRecording) {
     // Stop recording
+    console.log('[PANEL] Stopping recording...');
     const res = await send({ from:'panel', type:'PANEL_STOP' });
-    if (!res?.ok) alert('Failed to stop: ' + (res?.error||''));
+    if (!res?.ok) {
+      alert('Failed to stop: ' + (res?.error||''));
+    } else {
+      console.log('[PANEL] Recording stopped successfully');
+    }
     
     // Update button state immediately (before heavy operations)
     stopPlayBtn.textContent = 'Play All';
@@ -595,6 +604,7 @@ stopPlayBtn.onclick = async () => {
       return;
     }
     
+    console.log('[PANEL] Starting playback...');
     await playAll();
   }
 };
@@ -694,7 +704,7 @@ async function playAll() {
       const urlRes = await send({ from: 'panel', type: 'PANEL_GET_START_URL' });
       startUrl = urlRes?.startUrl;
     } catch (error) {
-      console.warn('Could not get start URL:', error);
+      // Could not get start URL
     }
     
     // Get steps to check if we need grouped execution
@@ -706,12 +716,7 @@ async function playAll() {
     
     if (hasLoopGroups) {
       // Use grouped execution
-      console.log('Using grouped execution');
       const groupingAnalysis = await analyzeDataGrouping();
-      
-      if (groupingAnalysis.hasGroups) {
-        console.log('Grouping preview:', groupingAnalysis.preview);
-      }
       
       const res = await send({ 
         from:'panel', 
@@ -750,25 +755,16 @@ async function playAll() {
 
 // Debug function to test message flow
 async function debugMessageFlow() {
-  console.log('=== DEBUG MESSAGE FLOW TEST ===');
-  
   try {
     // Test service worker communication
-    console.log('Testing service worker communication...');
     const swTest = await send({ from: 'panel', type: 'DEBUG_TEST' });
-    console.log('Service worker test result:', swTest);
     
     // Test getting steps
-    console.log('Testing get steps...');
     const stepsRes = await send({ from: 'panel', type: 'PANEL_GET_STEPS' });
-    console.log('Steps result:', stepsRes);
     
     // Test getting start URL
-    console.log('Testing get start URL...');
     const urlRes = await send({ from: 'panel', type: 'PANEL_GET_START_URL' });
-    console.log('Start URL result:', urlRes);
     
-    console.log('=== END DEBUG MESSAGE FLOW TEST ===');
   } catch (error) {
     console.error('Debug test failed:', error);
   }
@@ -777,7 +773,6 @@ async function debugMessageFlow() {
 // Add debug button to the panel (temporary)
 if (typeof window !== 'undefined') {
   window.debugMessageFlow = debugMessageFlow;
-  console.log('Debug function available: window.debugMessageFlow()');
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -1032,9 +1027,7 @@ function formatDelay(delayMs) {
 }
 
 function renderAccordion(steps) {
-  console.log('Rendering accordion with', steps?.length || 0, 'steps');
   if (!steps || steps.length === 0) {
-    console.log('No steps to render, showing empty state');
     stepsAccordion.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">📝</div>
@@ -1210,9 +1203,7 @@ function renderAccordion(steps) {
     `;
   }).join('');
 
-  console.log('Setting accordion HTML, length:', accordionHTML.length);
   stepsAccordion.innerHTML = sanitizeHTML(accordionHTML);
-  console.log('Accordion HTML set, children count:', stepsAccordion.children.length);
   
   // Update step count immediately
   stepCountEl.textContent = `${steps.length} step${steps.length !== 1 ? 's' : ''}`;
@@ -1236,7 +1227,6 @@ function toggleAccordion(index) {
     const toggle = document.getElementById(`toggle-${index}`);
     
     if (!header || !body || !toggle) {
-      console.warn(`Could not find accordion elements for index ${index}`);
       return;
     }
     
@@ -1281,7 +1271,6 @@ async function copyStepData(index) {
       await navigator.clipboard.writeText(stepJson);
       
       showMessage(`Copied step ${index + 1} data to clipboard`, 'success');
-      console.log('Copied step data:', stepData);
     } else {
       showMessage('Invalid step index', 'error');
     }
@@ -1479,11 +1468,9 @@ async function highlightStepElement(index) {
         selector = dropdown.value;
         const selectedOption = dropdown.options[dropdown.selectedIndex];
         const isCustom = selectedOption && selectedOption.dataset.type === 'custom';
-        console.log('Using dropdown selector:', selector, isCustom ? '(CUSTOM)' : '');
       } else {
         // Fallback to step's original selector
         selector = step.target?.css;
-        console.log('Using step target selector:', selector);
       }
       
       if (!selector) {
@@ -1491,7 +1478,6 @@ async function highlightStepElement(index) {
         return;
       }
       
-      console.log('Highlighting element with selector:', selector);
       
       // Send message to highlight element
       const highlightRes = await send({ 
@@ -1501,7 +1487,6 @@ async function highlightStepElement(index) {
         stepIndex: index
       });
       
-      console.log('Highlight response:', highlightRes);
       
       if (highlightRes?.ok) {
         showMessage(`Highlighted element for step ${index + 1}`, 'success');
@@ -1629,7 +1614,6 @@ async function handleSelectorChange(dropdown, stepIndex) {
     // Save selector preference
     saveSelectorPreference(stepIndex, selectedValue);
     
-    console.log(`Step ${stepIndex} selector changed to:`, selectedValue);
     
   } catch (error) {
     console.error('Error handling selector change:', error);
@@ -1666,7 +1650,6 @@ async function updateStepSelector(stepIndex, newSelector) {
       if (updateRes?.ok) {
         // Refresh the accordion to show updated selector
         await refreshSteps();
-        console.log(`Updated step ${stepIndex} selector to:`, newSelector);
       } else {
         console.error('Failed to update step selector:', updateRes?.error);
       }
@@ -1714,7 +1697,6 @@ window.deleteStep = deleteStep;
 // Test function for custom selectors
 window.testCustomSelector = async function(stepIndex, customSelector) {
   try {
-    console.log(`Testing custom selector "${customSelector}" for step ${stepIndex}`);
     
     // Get current steps
     const res = await send({ from: 'panel', type: 'PANEL_GET_STEPS' });
@@ -1729,7 +1711,6 @@ window.testCustomSelector = async function(stepIndex, customSelector) {
         stepIndex: stepIndex
       });
       
-      console.log('Highlight response:', highlightRes);
       
       if (highlightRes?.ok) {
         showMessage(`Custom selector "${customSelector}" highlighted successfully`, 'success');
@@ -2218,7 +2199,6 @@ function logError(step, stepIndex, error, context, action) {
   else if (action === 'retry') errorStats.retriedErrors++;
   else if (action === 'stop') errorStats.stoppedErrors++;
   
-  console.log('Error logged:', errorEntry);
 }
 
 function getErrorReport() {
@@ -2239,7 +2219,6 @@ function clearErrorLog() {
     errorTypes: {}
   };
   skipSimilarErrors.clear();
-  console.log('Error log cleared');
 }
 
 function showErrorReport() {
@@ -2379,7 +2358,6 @@ function handleStepError(step, stepIndex, error, context = {}) {
   // Check if we should skip similar errors
   const errorKey = `${step.type}_${error.message}`;
   if (skipSimilarErrors.has(errorKey)) {
-    console.log(`Skipping similar error: ${errorKey}`);
     logError(step, stepIndex, error, context, 'skip');
     return Promise.resolve({ action: 'skip' });
   }
@@ -2392,7 +2370,6 @@ function handleStepError(step, stepIndex, error, context = {}) {
     // Handle "skip all similar errors" option
     if (result.action === 'skip' && skipAllSimilarErrors.checked) {
       skipSimilarErrors.add(errorKey);
-      console.log(`Added to skip list: ${errorKey}`);
     }
     
     return result;

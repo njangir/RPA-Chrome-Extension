@@ -2,14 +2,10 @@
 (() => {
   'use strict';
   
-  console.log('=== ENHANCED PLAYER SCRIPT LOADING ===');
-  console.log('Window location:', window.location.href);
-  console.log('Document ready state:', document.readyState);
-  console.log('Chrome runtime available:', typeof chrome !== 'undefined' && typeof chrome.runtime !== 'undefined');
-  console.log('=====================================');
+// Enhanced player script loading
   
   const C = window.__mvpEnhancedCommon || window.__mvpCommon || {};
-  const log = (...a) => (C.log ? C.log('[enhanced-player]', ...a) : console.log('[MVP][enhanced-player]', ...a));
+  const log = (...a) => (C.log ? C.log('[enhanced-player]', ...a) : (() => {}));
   
   if (window.__mvp_enhanced_player_installed__) { 
     log('already installed'); 
@@ -1547,7 +1543,6 @@
   }
 
   // Message handling
-  console.log('Setting up message listener...');
   chrome.runtime.onMessage.addListener((msg, sender, send) => {
     log('=== ENHANCED PLAYER MESSAGE RECEIVED ===');
     log('Message type:', msg?.type);
@@ -1650,35 +1645,32 @@
   log('Enhanced player ready');
   log('Chrome runtime available:', typeof chrome !== 'undefined' && typeof chrome.runtime !== 'undefined');
   log('Message listener registered:', typeof chrome.runtime.onMessage !== 'undefined');
-  console.log('=== ENHANCED PLAYER SCRIPT LOADED ===');
   
   // Test if we can send messages immediately
-  console.log('Testing immediate message sending...');
   try {
     chrome.runtime.sendMessage({ type: 'PLAYER_READY' }, (response) => {
       if (chrome.runtime.lastError) {
-        console.log('Could not notify service worker of ready state:', chrome.runtime.lastError.message);
+        // Could not notify service worker of ready state
       } else {
-        console.log('Notified service worker that player is ready');
+        // Notified service worker that player is ready
       }
     });
   } catch (e) {
-    console.log('Error notifying service worker:', e);
+    // Error notifying service worker
   }
   
   // Also try to send a test message to verify communication
   setTimeout(() => {
-    console.log('Sending delayed test message...');
     try {
       chrome.runtime.sendMessage({ type: 'PLAYER_TEST' }, (response) => {
         if (chrome.runtime.lastError) {
-          console.log('Delayed test message error:', chrome.runtime.lastError.message);
+          // Delayed test message error
         } else {
-          console.log('Delayed test message success:', response);
+          // Delayed test message success
         }
       });
     } catch (e) {
-      console.log('Delayed test message exception:', e);
+      // Delayed test message exception
     }
   }, 1000);
 })();

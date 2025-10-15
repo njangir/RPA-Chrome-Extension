@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   
-  console.log('[Dataset Helper] Content script loaded');
+  // Dataset Helper content script loaded
   
   let isDragActive = false;
   let highlightedElements = [];
@@ -65,7 +65,7 @@
       el.addEventListener('drop', handleDrop);
     });
     
-    console.log(`[Dataset Helper] Highlighted ${highlightedElements.length} input fields`);
+    // Highlighted input fields
   }
   
   // Remove highlight from input fields
@@ -81,7 +81,7 @@
     });
     
     highlightedElements = [];
-    console.log('[Dataset Helper] Removed highlight from input fields');
+    // Removed highlight from input fields
   }
   
   // Handle drag over input fields
@@ -107,14 +107,14 @@
           value = data.value || textData;
           key = data.key || 'unknown';
         } catch (err) {
-          console.warn('[Dataset Helper] Could not parse JSON data:', err);
+          // Could not parse JSON data
         }
       }
       
       // Insert the value into the input field
       insertValueIntoField(e.target, value);
       
-      console.log(`[Dataset Helper] Dropped "${key}" value into input field:`, value);
+      // Dropped value into input field
       
       // Send success response back to panel
       chrome.runtime.sendMessage({
@@ -199,7 +199,7 @@
       )) {
         insertValueIntoField(activeElement, value);
         
-        console.log(`[Dataset Helper] Pasted "${key}" value into focused field:`, value);
+        // Pasted value into focused field
         
         // Send success response
         chrome.runtime.sendMessage({
@@ -212,7 +212,7 @@
       } else {
         // No focused input field, copy to clipboard as fallback
         navigator.clipboard.writeText(value).then(() => {
-          console.log(`[Dataset Helper] Copied "${key}" value to clipboard:`, value);
+          // Copied value to clipboard
           
           chrome.runtime.sendMessage({
             type: 'DATASET_BUTTON_SUCCESS',
@@ -281,5 +281,5 @@
     removeInputFieldHighlight();
   });
   
-  console.log('[Dataset Helper] Content script ready');
+  // Dataset Helper content script ready
 })();
